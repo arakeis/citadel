@@ -241,7 +241,7 @@
 	text-decoration: underline;
 }
 
-.downloadLink {
+.downloadLink:any-link {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
