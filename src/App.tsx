@@ -12,6 +12,7 @@ import { useLibrarySwitch } from "@/lib/hooks/use-library-switch";
 import { usePlatform } from "@/lib/platform/context";
 import { useApplyColorScheme } from "@/lib/theme-manager";
 import { safeAsyncEventHandler } from "$lib/async";
+import { BrowserLibraryGate } from "./components/organisms/BrowserLibraryGate";
 import { FirstRunGate } from "./components/organisms/FirstRunFlow";
 import { LibrarySwitchCurtain } from "./components/organisms/LibrarySwitchCurtain";
 import { routeTree } from "./routeTree.gen";
@@ -117,11 +118,17 @@ export const App = () => {
 	return (
 		<TooltipProvider>
 			<Toaster />
-			<FirstRunGate>
-				<LibraryStoreInitializer>
+			{platform.capabilities.supportsNativeWindows ? (
+				<FirstRunGate>
+					<LibraryStoreInitializer>
+						<RouterProvider router={router} />
+					</LibraryStoreInitializer>
+				</FirstRunGate>
+			) : (
+				<BrowserLibraryGate>
 					<RouterProvider router={router} />
-				</LibraryStoreInitializer>
-			</FirstRunGate>
+				</BrowserLibraryGate>
+			)}
 			<LibrarySwitchCurtain stage={switchStage} />
 		</TooltipProvider>
 	);

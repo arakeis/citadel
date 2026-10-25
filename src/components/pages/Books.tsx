@@ -22,6 +22,7 @@ import {
 	Tooltip,
 } from "@/components/ui";
 import { safeAsyncEventHandler } from "@/lib/async";
+import { remoteBookDownloads } from "@/lib/book-downloads";
 import {
 	BOOK_PAGE_SIZE,
 	type BookGridFilter,
@@ -37,6 +38,7 @@ import {
 	useBookCache,
 	useLibraryActions,
 	useLibraryReady,
+	useLibraryStore,
 	useLibraryTotal,
 	usePublishers,
 	useSeriesList,
@@ -586,7 +588,12 @@ const BookDetails = ({
 }) => {
 	const platform = usePlatform();
 	const navigate = useNavigate();
-	const canRead = platform.capabilities.canOpenLocalPaths;
+	const canRead =
+		platform.capabilities.canOpenLocalPaths &&
+		book.file_list.some((file) => "Local" in file);
+	const canEdit = useLibraryStore((state) => state.library?.readOnly === false);
+	const downloads = remoteBookDownloads(book.file_list);
+	const firstDownload = downloads[0];
 	// Books carry only their series NAME; the id that LibraryBookQuery
 	// filters on comes from the store's series list (loaded at init and
 	// refreshed on mutations). An unresolvable name (shouldn't happen)
@@ -644,7 +651,9 @@ const BookDetails = ({
 								variant="subtle"
 								data-drawer-initial-focus=""
 								onClick={safeAsyncEventHandler(async () => {
-									const firstFile = book.file_list[0];
+									const firstFile = book.file_list.find(
+										(file) => "Local" in file,
+									);
 									if (firstFile === undefined) return;
 
 									const isLocal = "Local" in firstFile;
@@ -656,19 +665,31 @@ const BookDetails = ({
 								Read
 							</Button>
 						)}
-						<Button
-							variant="primary"
-							data-drawer-initial-focus={canRead ? undefined : ""}
-							onClick={() =>
-								void navigate({
-									to: "/books/$bookId",
-									params: { bookId: book.id },
-								})
-							}
-						>
-							<F7Pencil />
-							Edit
-						</Button>
+						{firstDownload && (
+							<a
+								className={styles.downloadLink}
+								href={firstDownload.url}
+								download
+								data-drawer-initial-focus={canRead ? undefined : ""}
+							>
+								Download
+							</a>
+						)}
+						{canEdit && (
+							<Button
+								variant="primary"
+								data-drawer-initial-focus={canRead ? undefined : ""}
+								onClick={() =>
+									void navigate({
+										to: "/books/$bookId",
+										params: { bookId: book.id },
+									})
+								}
+							>
+								<F7Pencil />
+								Edit
+							</Button>
+						)}
 					</div>
 				</div>
 			</div>
@@ -728,6 +749,16 @@ const BookDetails = ({
 								</span>
 							),
 						)}
+					{downloads.map((file) => (
+						<a
+							key={file.url}
+							className={`${styles.formatChip} ${styles.formatChipLink}`}
+							href={file.url}
+							download
+						>
+							{file.label} ↓
+						</a>
+					))}
 				</p>
 			</div>
 		</div>

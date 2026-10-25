@@ -201,6 +201,9 @@ fn validate_config(config: &ServerConfig) -> Result<(), String> {
             );
         }
         citadel_opds::network::validate_explicit_addresses(&[api.listen.ip().to_string()], true)?;
+        if let Some(directory) = &api.web_directory {
+            api::web::validate(directory)?;
+        }
     }
     Ok(())
 }
@@ -239,7 +242,12 @@ pub async fn run(config: ServerConfig) -> Result<(), String> {
     }
 
     let mut api = if let Some(config) = &config.api {
-        match api::start(config, api::router(source, &service)).await {
+        match api::start(
+            config,
+            api::router(source, &service, config.web_directory.as_deref()),
+        )
+        .await
+        {
             Ok(api) => {
                 println!("citadel_server api=http://{}", config.listen);
                 Some(api)

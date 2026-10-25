@@ -90,10 +90,12 @@ export const AddBookProvider = ({ children }: { children: ReactNode }) => {
 	);
 
 	const canAddBook =
-		state === LibraryState.ready && platform.capabilities.canPickLocalFiles;
+		state === LibraryState.ready &&
+		activeLibrary?.readOnly === false &&
+		platform.capabilities.canPickLocalFiles;
 
 	const startAddBook = useCallback(() => {
-		if (state !== LibraryState.ready) return;
+		if (!canAddBook) return;
 
 		triggerRef.current =
 			document.activeElement instanceof HTMLElement
@@ -125,7 +127,7 @@ export const AddBookProvider = ({ children }: { children: ReactNode }) => {
 				console.error("failed to import new book: ", failure);
 			}
 		})();
-	}, [actions, state, openModal, platform]);
+	}, [actions, canAddBook, openModal, platform]);
 
 	// File > Add Book… in the native menu emits this event to the main window
 	// (see src-tauri/src/menu.rs); it triggers the same flow as the button.

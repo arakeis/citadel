@@ -177,19 +177,7 @@ pub fn router(source: Arc<dyn CatalogSource>, auth: OpdsBasicAuth) -> Router {
             source: source.clone(),
             limits: limits.clone(),
         });
-    let assets = Router::new()
-        .route(
-            "/opds/books/{book_id}/files/{format}/{filename}",
-            get(book_file).head(book_file_head),
-        )
-        .route(
-            "/opds/books/{book_id}/cover",
-            get(book_cover).head(book_cover_head),
-        )
-        .with_state(CatalogState {
-            source,
-            limits: limits.clone(),
-        });
+    let assets = asset_routes(source, limits.clone(), "/opds");
     Router::new()
         .merge(feeds)
         .merge(assets)
@@ -201,6 +189,20 @@ pub fn router(source: Arc<dyn CatalogSource>, auth: OpdsBasicAuth) -> Router {
             limits,
             limits::enforce,
         ))
+}
+
+/// Asset routes shared with the JSON API, using the same resolver and streaming limits.
+pub(crate) fn asset_routes(source: Arc<dyn CatalogSource>, limits: Limits, prefix: &str) -> Router {
+    Router::new()
+        .route(
+            &format!("{prefix}/books/{{book_id}}/files/{{format}}/{{filename}}"),
+            get(book_file).head(book_file_head),
+        )
+        .route(
+            &format!("{prefix}/books/{{book_id}}/cover"),
+            get(book_cover).head(book_cover_head),
+        )
+        .with_state(CatalogState { source, limits })
 }
 
 async fn root_feed(state: State<CatalogState>, query: Query<PageQuery>) -> Response {
@@ -993,7 +995,7 @@ fn public_error(status: StatusCode, message: &'static str) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::identity::{book_identity, library_identity};
+    use crate::identity::book_identity;
     use crate::xml::valid_xml_char;
     use chrono::{DateTime, NaiveDate};
     use diesel::{Connection, RunQueryDsl};

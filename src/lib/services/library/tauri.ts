@@ -32,6 +32,7 @@ export const createTauriLibrary = (): Library => {
 	>();
 
 	return {
+		readOnly: false,
 		listCustomColumns: async () =>
 			unwrap(await commands.clbQueryListCustomColumns()),
 		getCustomValuesForBook: async (id) =>

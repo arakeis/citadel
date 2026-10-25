@@ -28,6 +28,7 @@ export interface FileType {
 }
 
 export interface Library {
+	readonly readOnly: boolean;
 	listCustomColumns(): Promise<CustomColumnDef[]>;
 	getCustomValuesForBook(bookId: string): Promise<BookCustomValue[]>;
 	setCustomValue(

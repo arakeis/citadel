@@ -26,6 +26,7 @@ import {
 	useAuthors,
 	useAuthorsLoading,
 	useLibraryActions,
+	useLibraryStore,
 } from "@/stores/library/store";
 import { F7Pencil } from "../icons/F7Pencil";
 import { F7Trash } from "../icons/F7Trash";
@@ -421,6 +422,7 @@ const AuthorRow = ({
 	onEditAuthor: (authorId: string) => void;
 	onDeleteAuthor: (authorId: string) => void;
 }) => {
+	const canEdit = useLibraryStore((state) => state.library?.readOnly === false);
 	return (
 		// The whole row links to the library filtered by this author. The hover
 		// background, 40px min-height, and the overlay-link positioning live in
@@ -462,23 +464,27 @@ const AuthorRow = ({
 			</Link>
 
 			<div className={styles.actions}>
-				<IconButton
-					className={styles.actionIcon}
-					aria-label={`Edit ${author.name}`}
-					onClick={() => onEditAuthor(author.id)}
-				>
-					<F7Pencil />
-				</IconButton>
-				{author.book_count === 0 ? (
-					<IconButton
-						className={clsx(styles.actionIcon, styles.dangerIcon)}
-						aria-label={`Delete ${author.name}`}
-						onClick={() => onDeleteAuthor(author.id)}
-					>
-						<F7Trash />
-					</IconButton>
-				) : (
-					<span className={styles.actionSpacer} />
+				{canEdit && (
+					<>
+						<IconButton
+							className={styles.actionIcon}
+							aria-label={`Edit ${author.name}`}
+							onClick={() => onEditAuthor(author.id)}
+						>
+							<F7Pencil />
+						</IconButton>
+						{author.book_count === 0 ? (
+							<IconButton
+								className={clsx(styles.actionIcon, styles.dangerIcon)}
+								aria-label={`Delete ${author.name}`}
+								onClick={() => onDeleteAuthor(author.id)}
+							>
+								<F7Trash />
+							</IconButton>
+						) : (
+							<span className={styles.actionSpacer} />
+						)}
+					</>
 				)}
 			</div>
 		</div>
