@@ -271,3 +271,22 @@ describe("selected-library custom fields, genres and covers", () => {
 		expect(b.fake.setBookCoverFromUrl).not.toHaveBeenCalled();
 	});
 });
+
+describe("remote library initialization", () => {
+	it("opens remote options without turning the server URL into a local filesystem path", async () => {
+		initClient.mockReset();
+		const { useLibraryStore, LibraryState } = await importStore();
+		const remote = fakeLibrary();
+		initClient.mockResolvedValueOnce(remote.library);
+		const options: Options = {
+			libraryType: "calibre",
+			connectionType: "remote",
+			url: "https://citadel.example",
+		};
+		await useLibraryStore.getState().actions.initialize(options);
+		expect(initClient).toHaveBeenCalledWith(options);
+		expect(useLibraryStore.getState().libraryState).toBe(LibraryState.ready);
+		expect(useLibraryStore.getState().library).toBe(remote.library);
+		expect(remote.fake.queryBooks).toHaveBeenCalled();
+	});
+});

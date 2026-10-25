@@ -119,11 +119,11 @@ impl BookUrlBuilder for HttpUrlBuilder {
     ) -> BookFile {
         BookFile::Remote(RemoteFile {
             url: format!(
-                "{}/api/books/{}/files/{}.{}",
+                "{}/api/books/{}/files/{}/{}",
                 self.base_url,
                 book.id.as_i32(),
-                file.name,
-                file.format.to_lowercase()
+                urlencoding::encode(&file.format.to_lowercase()),
+                urlencoding::encode(&format!("{}.{}", file.name, file.format.to_lowercase()))
             ),
         })
     }
@@ -190,6 +190,23 @@ mod tests {
             name: "Title - Author".to_string(),
             uncompressed_size: 0,
         }
+    }
+
+    #[test]
+    fn http_download_names_are_encoded_as_one_path_segment() {
+        let mut file = epub_file();
+        file.name = "Café #1? / title".into();
+        let book = test_book(false, vec![file.clone()]);
+        let BookFile::Remote(remote) =
+            HttpUrlBuilder::new("").file_url(&book, &file, Path::new("/private/library/book.epub"))
+        else {
+            panic!("HTTP files must be remote");
+        };
+        assert_eq!(
+            remote.url,
+            "/api/books/1/files/epub/Caf%C3%A9%20%231%3F%20%2F%20title.epub"
+        );
+        assert!(!remote.url.contains("/private"));
     }
 
     #[test]
@@ -281,7 +298,8 @@ mod tests {
             BookFile::Remote(f) => {
                 assert_eq!(
                     f.url,
-                    "https://example.com/api/books/1/files/Title - Author.epub".to_string()
+                    "https://example.com/api/books/1/files/epub/Title%20-%20Author.epub"
+                        .to_string()
                 );
             }
             BookFile::Local(_) => panic!("http builder should emit a remote file"),

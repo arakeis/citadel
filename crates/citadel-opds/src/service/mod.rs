@@ -487,6 +487,12 @@ impl OpdsService {
             ))
     }
 
+    /// Unprotected book asset routes for hosts that wrap the combined router with
+    /// `protect_http_routes`. Streaming shares this service's blocking-work budget.
+    pub fn book_asset_routes(&self, source: Arc<dyn CatalogSource>, prefix: &str) -> axum::Router {
+        crate::catalog::asset_routes(source, self.inner.auth.limits(), prefix)
+    }
+
     pub fn new(
         source: Arc<dyn CatalogSource>,
         credential_path: std::path::PathBuf,

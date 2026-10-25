@@ -240,3 +240,26 @@
 .detailsLink:focus-visible {
 	text-decoration: underline;
 }
+
+.downloadLink {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 28px;
+	padding: 4px 12px;
+	border-radius: 6px;
+	background: var(--ctd-accent);
+	color: var(--ctd-accent-text);
+	font-size: 13px;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.downloadLink:hover {
+	background: var(--ctd-accent-strong);
+}
+
+.downloadLink:focus-visible {
+	outline: none;
+	box-shadow: var(--ctd-focus-shadow);
+}

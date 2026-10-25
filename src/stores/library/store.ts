@@ -51,7 +51,7 @@ interface LibraryActions {
 	loadTags: () => Promise<void>;
 	/** Loads publishers with book counts. Lazy: only the Publishers page needs them. */
 	loadPublishers: () => Promise<void>;
-	initialize: (libraryPath: string) => Promise<void>;
+	initialize: (connection: string | Options) => Promise<void>;
 	reset: () => void;
 
 	// Paged book grid
@@ -231,10 +231,8 @@ const SWITCH_IN_PROGRESS_ERROR = "A library switch is in progress";
 const isBackendDiverted = (): boolean =>
 	pendingSwitch !== null || pendingRestore !== null;
 
-const openBackend = (libraryPath: string): Promise<Library> => {
-	const open = backendOpenChain.then(() =>
-		libraryCatalog.open(localLibraryFromPath(libraryPath)),
-	);
+const openBackend = (options: Options): Promise<Library> => {
+	const open = backendOpenChain.then(() => libraryCatalog.open(options));
 	backendOpenChain = open.catch(() => undefined);
 	return open;
 };
@@ -299,7 +297,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => {
 	const restoreBackend = (libraryPath: string): void => {
 		const token = ++shadowTokenCounter;
 		pendingRestore = token;
-		openBackend(libraryPath).then(
+		openBackend(localLibraryFromPath(libraryPath)).then(
 			() => {
 				if (pendingRestore !== token) return;
 				pendingRestore = null;
@@ -615,7 +613,15 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => {
 				// mutation.
 			},
 
-			initialize: async (libraryPath: string) => {
+			initialize: async (connection: string | Options) => {
+				const options =
+					typeof connection === "string"
+						? localLibraryFromPath(connection)
+						: connection;
+				const libraryPath =
+					options.connectionType === "local"
+						? options.libraryPath
+						: options.url;
 				const startState = get();
 				const confirmedPath = startState.confirmedLibraryPath;
 				const switchingFromReady =
@@ -665,7 +671,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => {
 				const keyAtStart = serializeBookFilter(filterAtStart);
 
 				try {
-					const library = await openBackend(libraryPath);
+					const library = await openBackend(options);
 					if (pendingSwitch?.token !== shadowToken) return;
 					// Boot path mirrors the old flow: the client handle lands
 					// before the metadata does (the first-run flow observes

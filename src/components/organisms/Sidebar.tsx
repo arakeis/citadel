@@ -67,6 +67,7 @@ interface SidebarPureProps {
 }
 
 const SidebarPure = ({ currentPathname, openSettings }: SidebarPureProps) => {
+	const platform = usePlatform();
 	const smartShelves = useSettings((s) => s.smartShelves);
 	const libraryCount = useSettings((s) => s.libraryPaths.length);
 	const hydrated = useSettings((s) => s.hydrated);
@@ -90,7 +91,7 @@ const SidebarPure = ({ currentPathname, openSettings }: SidebarPureProps) => {
 		<div className={styles.root}>
 			<div className={styles.sections}>
 				<div className={styles.section}>
-					{libraryCount >= 2 ? (
+					{platform.capabilities.canPickLocalFiles && libraryCount >= 2 ? (
 						<LibraryPicker />
 					) : (
 						<h2 className={styles.sectionLabel}>Library</h2>

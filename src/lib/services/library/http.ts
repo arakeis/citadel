@@ -1,0 +1,115 @@
+import type { ClientOptions } from "openapi-fetch";
+import type { CoverThumbnail, LibraryBook } from "@/bindings";
+import { createCitadelHttpClient } from "@/lib/api/client";
+import type { Library } from "./types";
+
+const unsupported = async (): Promise<never> => {
+	throw new Error(
+		"This server connection supports browsing and downloads only",
+	);
+};
+
+const unwrap = async <T>(
+	request: Promise<{
+		data?: T;
+		error?: { message: string };
+		response: Response;
+	}>,
+): Promise<T> => {
+	const { data, error, response } = await request;
+	if (error) throw new Error(error.message);
+	if (!response.ok || data === undefined)
+		throw new Error(`Library request failed (${response.status})`);
+	return data;
+};
+
+export const createHttpLibrary = (
+	options: ClientOptions & { baseUrl: string },
+): Library => {
+	const client = createCitadelHttpClient(options);
+	const covers = new Map<string, string>();
+	const assetUrl = (path: string): string =>
+		new URL(path, options.baseUrl).toString();
+	const rememberBook = (book: LibraryBook): LibraryBook => {
+		const cover = book.cover_image;
+		if (cover) covers.set(book.id, assetUrl(cover.url));
+		else covers.delete(book.id);
+		return {
+			...book,
+			cover_image: cover ? { ...cover, url: assetUrl(cover.url) } : null,
+			file_list: book.file_list.map((file) =>
+				"Remote" in file
+					? { Remote: { ...file.Remote, url: assetUrl(file.Remote.url) } }
+					: file,
+			),
+		};
+	};
+	const thumbnails = (items: CoverThumbnail[]): CoverThumbnail[] =>
+		items.map((item) => ({ ...item, url: assetUrl(item.url) }));
+
+	return {
+		readOnly: true,
+		queryBooks: async (query) => {
+			const page = await unwrap(
+				client.POST("/api/books/query", { body: query }),
+			);
+			return { ...page, items: page.items.map(rememberBook) };
+		},
+		getBook: async (bookId) =>
+			rememberBook(
+				await unwrap(
+					client.GET("/api/books/{book_id}", {
+						params: { path: { book_id: bookId } },
+					}),
+				),
+			),
+		listAuthors: () => unwrap(client.GET("/api/authors")),
+		listSeries: () => unwrap(client.GET("/api/series")),
+		listTags: () => unwrap(client.GET("/api/tags")),
+		listPublishers: () => unwrap(client.GET("/api/publishers")),
+		listCustomColumns: () => unwrap(client.GET("/api/custom-columns")),
+		getCustomValuesForBook: (bookId) =>
+			unwrap(
+				client.GET("/api/books/{book_id}/custom-values", {
+					params: { path: { book_id: bookId } },
+				}),
+			),
+		ensureCoverThumbnails: async (bookIds) => {
+			const result: CoverThumbnail[] = [];
+			for (let start = 0; start < bookIds.length; start += 200) {
+				result.push(
+					...thumbnails(
+						await unwrap(
+							client.POST("/api/covers/thumbnails", {
+								body: { book_ids: bookIds.slice(start, start + 200) },
+							}),
+						),
+					),
+				);
+			}
+			return result;
+		},
+		listCoverThumbnails: async () =>
+			thumbnails(await unwrap(client.GET("/api/covers/thumbnails"))),
+		// HTTP clients request thumbnails for visible pages, not the entire server library.
+		warmCoverThumbnails: async () => [],
+		getCoverUrlForBook: (id) => covers.get(id),
+		getCoverPathForBook: () => undefined,
+		getDefaultFilePathForBook: () => undefined,
+		setCustomValue: unsupported,
+		addBookGenres: unsupported,
+		setBookCoverFromUrl: unsupported,
+		createAuthors: unsupported,
+		sendToDevice: unsupported,
+		updateBook: unsupported,
+		updateAuthor: unsupported,
+		deleteAuthor: unsupported,
+		deleteBooks: unsupported,
+		deleteBookIdentifier: unsupported,
+		upsertBookIdentifier: unsupported,
+		checkFileImportable: unsupported,
+		getImportableFileMetadata: unsupported,
+		addImportableFileByMetadata: unsupported,
+		listValidFileTypes: unsupported,
+	};
+};

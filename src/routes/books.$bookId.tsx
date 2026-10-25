@@ -15,6 +15,7 @@ import {
 	useAuthors,
 	useLibraryActions,
 	useLibraryState,
+	useLibraryStore,
 } from "@/stores/library/store";
 
 const centeredFill: CSSProperties = {
@@ -27,6 +28,7 @@ const centeredFill: CSSProperties = {
 const EditBookRoute = () => {
 	const { bookId } = useParams({ from: "/books/$bookId" });
 	const state = useLibraryState();
+	const readOnly = useLibraryStore((state) => state.library?.readOnly === true);
 	const actions = useLibraryActions();
 	const navigate = useNavigate();
 	const [deleteFailures, setDeleteFailures] = useState<string[]>([]);
@@ -123,6 +125,19 @@ const EditBookRoute = () => {
 		}
 		await navigate({ to: "/", replace: true });
 	}, [actions, bookId, navigate]);
+
+	if (readOnly) {
+		return (
+			<div style={centeredFill}>
+				<div>
+					<p>This library is read-only.</p>
+					<Button onClick={() => void navigate({ to: "/", replace: true })}>
+						Back to library
+					</Button>
+				</div>
+			</div>
+		);
+	}
 
 	if (deleteFailures.length > 0) {
 		return (

@@ -65,15 +65,16 @@ cargo run -p libcalibre --example create_opds_validation_library -- \
 
 The fixture includes 105 downloadable books, multiple pages, Unicode/XML metadata, assigned genres, missing covers, a large file and a fileless book. It is intended for smoke tests, not for an existing library.
 
-## Shared library HTTP API (foundation)
+## Browser library and HTTP API
 
 The optional JSON listener exposes the same `citadel-core` book queries used by
-Tauri. It is a foundation for the web client; the existing desktop client still
-uses IPC. Add this top-level table to the server config to enable it:
+Tauri. The browser uses this listener for browsing; the desktop client continues to use IPC. Add this top-level table to the server config to enable it:
 
 ```toml
 [api]
 listen = "127.0.0.1:8081"
+# Optional: serve a frontend built with `bun run build:web`.
+webDirectory = "/absolute/path/to/citadel/dist"
 ```
 
 Omitting `[api]` leaves the listener disabled. Enable
@@ -83,12 +84,17 @@ connections beyond a trusted local network. The address must pass the same
 explicit-address checks as OPDS. A bind failure fails startup rather than
 silently leaving only part of the configured server running.
 
-Initial routes (all require HTTP Basic authentication):
+Routes (all require HTTP Basic authentication):
 
 - `POST /api/books/query`: shared `LibraryBookQuery` JSON; HTTP requires an explicit
   `limit` between 0 and 200. Zero returns only the count. Desktop retains its
   existing unbounded-query behavior.
 - `GET /api/books/{book_id}`: one book, using the existing numeric string ID.
+- `GET /api/library`: configured library ID, display name, and read-only capability; no server filesystem path.
+- `GET /api/authors`, `/api/series`, `/api/tags`, `/api/publishers`: browse facets and counts.
+- `GET /api/custom-columns` and `/api/books/{book_id}/custom-values`: custom-field definitions and values.
+- `GET /api/books/{book_id}/cover` and `/api/books/{book_id}/files/{format}/{filename}`: protected assets, including range and HEAD requests for downloads.
+- `POST /api/covers/thumbnails`: thumbnail descriptors for at most 200 book IDs (`{"book_ids":["1"]}`). `GET` returns the bounded in-memory index; image URLs generate thumbnails on demand.
 - `GET /api/openapi.json`: generated OpenAPI 3.1 contract.
 
 Errors have `{ "code": "notFound", "message": "…" }` shape, with HTTP statuses
@@ -97,8 +103,10 @@ limits (429), unavailable library (503), and internal failures (500). Internal
 database/filesystem diagnostics are hidden from remote callers. Responses retain
 required nullable fields; request `Option` fields may be omitted or null.
 
-This listener opens the library read-only. File/cover URLs describe the shared
-remote DTO shape; the corresponding `/api` asset routes and the complete browser
-library adapter are follow-up work. OPDS acquisition routes remain available.
-Mutations, uploads, metadata-provider calls, and desktop administration are not
-exposed by this API.
+Build the frontend with `bun run build:web`, set `api.webDirectory` to the absolute build directory, and open the API listener in your browser. The initial page uses HTTP Basic sign-in; the browser reuses that authentication for API requests, images, and downloads. The frontend and API must share an origin, either using this built-in hosting or a reverse proxy. Deep links serve the app; unknown API routes and missing assets remain 404s.
+
+Browser startup uses the server’s configured library and ignores desktop library paths in browser settings. Search, paged books, authors, series, tags, publishers, covers, and downloads are available. Editing and imports are hidden for this read-only connection. Thumbnail generation uses a bounded in-memory cache and never writes inside the library.
+
+For frontend development, run `CITADEL_API_URL=http://127.0.0.1:8081 bun dev:web` to proxy `/api` through Vite. Visit `/api/library` on the Vite origin once to sign in before opening the app.
+
+This listener opens the library read-only. OPDS acquisition routes remain available. Mutations, uploads, metadata-provider calls, and server setup through the browser remain follow-up work (CDL-37/CDL-39). Until web setup lands, configure the library using the server configuration described above.

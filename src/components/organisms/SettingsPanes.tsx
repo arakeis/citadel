@@ -68,6 +68,10 @@ interface SettingsPanesProps {
  * overlay its left edge.
  */
 export const SettingsPanes = ({ onRequestClose }: SettingsPanesProps) => {
+	const platform = usePlatform();
+	const tabs: readonly SettingsTab[] = platform.capabilities.canPickLocalFiles
+		? SETTINGS_TABS
+		: ["general"];
 	const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 	const tabRefs = useRef<
 		Partial<Record<SettingsTab, HTMLButtonElement | null>>
@@ -89,23 +93,20 @@ export const SettingsPanes = ({ onRequestClose }: SettingsPanesProps) => {
 	// Automatic activation: arrows move both focus and selection, macOS style.
 	const handleTabKeyDown = useCallback(
 		(event: KeyboardEvent<HTMLButtonElement>) => {
-			const index = SETTINGS_TABS.indexOf(activeTab);
+			const index = tabs.indexOf(activeTab);
 			let next: SettingsTab | undefined;
 			switch (event.key) {
 				case "ArrowRight":
-					next = SETTINGS_TABS[(index + 1) % SETTINGS_TABS.length];
+					next = tabs[(index + 1) % tabs.length];
 					break;
 				case "ArrowLeft":
-					next =
-						SETTINGS_TABS[
-							(index - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length
-						];
+					next = tabs[(index - 1 + tabs.length) % tabs.length];
 					break;
 				case "Home":
-					next = SETTINGS_TABS[0];
+					next = tabs[0];
 					break;
 				case "End":
-					next = SETTINGS_TABS[SETTINGS_TABS.length - 1];
+					next = tabs[tabs.length - 1];
 					break;
 				default:
 					return;
@@ -113,7 +114,7 @@ export const SettingsPanes = ({ onRequestClose }: SettingsPanesProps) => {
 			event.preventDefault();
 			if (next) selectAndFocusTab(next);
 		},
-		[activeTab, selectAndFocusTab],
+		[activeTab, selectAndFocusTab, tabs],
 	);
 
 	return (
@@ -124,7 +125,7 @@ export const SettingsPanes = ({ onRequestClose }: SettingsPanesProps) => {
 				className={classes.tabStrip}
 				data-tauri-drag-region
 			>
-				{SETTINGS_TABS.map((tab) => (
+				{tabs.map((tab) => (
 					<button
 						key={tab}
 						ref={(node) => {

@@ -15,7 +15,7 @@ use citadel_core::{
     library::LibraryService,
     HttpUrlBuilder, LibraryBook,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Semaphore;
 use utoipa::openapi::{
     security::{Http, HttpAuthScheme, SecurityScheme},
@@ -25,16 +25,21 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::CalibreCatalogSource;
 
+mod thumbnails;
+pub(crate) mod web;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApiConfig {
     pub listen: SocketAddr,
+    pub web_directory: Option<std::path::PathBuf>,
 }
 
 #[derive(Clone)]
 struct ApiState {
     source: Arc<CalibreCatalogSource>,
     work: Arc<Semaphore>,
+    thumbnails: thumbnails::ThumbnailCache,
 }
 
 // Keep slots inside blocking tasks so timed-out HTTP requests cannot queue
@@ -42,6 +47,16 @@ struct ApiState {
 async fn run<T: Send + 'static>(
     state: ApiState,
     operation: impl FnOnce(&mut LibraryService<'_>) -> Result<T, LibraryError> + Send + 'static,
+) -> Result<T, ApiFailure> {
+    run_library(state, move |library| {
+        operation(&mut LibraryService::new(library, &HttpUrlBuilder::new("")))
+    })
+    .await
+}
+
+async fn run_library<T: Send + 'static>(
+    state: ApiState,
+    operation: impl FnOnce(&mut libcalibre::Library) -> Result<T, LibraryError> + Send + 'static,
 ) -> Result<T, ApiFailure> {
     let permit = state
         .work
@@ -54,10 +69,7 @@ async fn run<T: Send + 'static>(
             .library
             .lock()
             .map_err(|_| LibraryError::unavailable())?;
-        operation(&mut LibraryService::new(
-            &mut library,
-            &HttpUrlBuilder::new(""),
-        ))
+        operation(&mut library)
     })
     .await
     .map_err(|_| LibraryError::unavailable())?
@@ -131,12 +143,158 @@ async fn get_book(
     ))
 }
 
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+struct LibraryDescriptor {
+    id: String,
+    name: String,
+    read_only: bool,
+}
+
+#[utoipa::path(get, path = "/api/library", operation_id = "getLibrary",
+    responses((status = 200, body = LibraryDescriptor), (status = 401, body = LibraryError),
+        (status = 503, body = LibraryError), (status = 500, body = LibraryError)), security(("reader" = [])))]
+async fn library_descriptor(
+    State(state): State<ApiState>,
+) -> Result<Json<LibraryDescriptor>, ApiFailure> {
+    let id = run_library(state, |library| Ok(library.library_uuid()?)).await?;
+    Ok(Json(LibraryDescriptor {
+        id,
+        name: "Citadel Library".into(),
+        read_only: true,
+    }))
+}
+
+#[utoipa::path(get, path = "/api/authors", operation_id = "listAuthors",
+    responses((status = 200, body = Vec<citadel_core::LibraryAuthor>), (status = 401, body = LibraryError),
+        (status = 503, body = LibraryError), (status = 500, body = LibraryError)), security(("reader" = [])))]
+async fn authors(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<citadel_core::LibraryAuthor>>, ApiFailure> {
+    Ok(Json(run(state, |service| service.list_authors()).await?))
+}
+
+#[utoipa::path(get, path = "/api/series", operation_id = "listSeries",
+    responses((status = 200, body = Vec<citadel_core::contracts::LibrarySeries>), (status = 401, body = LibraryError),
+        (status = 503, body = LibraryError), (status = 500, body = LibraryError)), security(("reader" = [])))]
+async fn series(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<citadel_core::contracts::LibrarySeries>>, ApiFailure> {
+    Ok(Json(run(state, |service| service.list_series()).await?))
+}
+
+#[utoipa::path(get, path = "/api/tags", operation_id = "listTags",
+    responses((status = 200, body = Vec<citadel_core::contracts::LibraryTag>), (status = 401, body = LibraryError),
+        (status = 503, body = LibraryError), (status = 500, body = LibraryError)), security(("reader" = [])))]
+async fn tags(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<citadel_core::contracts::LibraryTag>>, ApiFailure> {
+    Ok(Json(run(state, |service| service.list_tags()).await?))
+}
+
+#[utoipa::path(get, path = "/api/publishers", operation_id = "listPublishers",
+    responses((status = 200, body = Vec<citadel_core::contracts::LibraryPublisher>), (status = 401, body = LibraryError),
+        (status = 503, body = LibraryError), (status = 500, body = LibraryError)), security(("reader" = [])))]
+async fn publishers(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<citadel_core::contracts::LibraryPublisher>>, ApiFailure> {
+    Ok(Json(run(state, |service| service.list_publishers()).await?))
+}
+
+#[utoipa::path(get, path = "/api/custom-columns", operation_id = "listCustomColumns",
+    responses((status = 200, body = Vec<citadel_core::contracts::custom_columns::CustomColumnDef>), (status = 401, body = LibraryError),
+        (status = 503, body = LibraryError), (status = 500, body = LibraryError)), security(("reader" = [])))]
+async fn custom_columns(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<citadel_core::contracts::custom_columns::CustomColumnDef>>, ApiFailure> {
+    Ok(Json(
+        run(state, |service| service.list_custom_columns()).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/books/{book_id}/custom-values", operation_id = "getCustomValues",
+    params(("book_id" = String, Path)),
+    responses((status = 200, body = Vec<citadel_core::contracts::custom_columns::BookCustomValue>),
+        (status = 400, body = LibraryError), (status = 401, body = LibraryError),
+        (status = 404, body = LibraryError), (status = 503, body = LibraryError), (status = 500, body = LibraryError)),
+    security(("reader" = [])))]
+async fn custom_values(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<citadel_core::contracts::custom_columns::BookCustomValue>>, ApiFailure> {
+    Ok(Json(
+        run(state, move |service| {
+            service.get_book(&id)?;
+            service.get_custom_values(&id)
+        })
+        .await?,
+    ))
+}
+
 fn routes() -> OpenApiRouter<ApiState> {
-    OpenApiRouter::new().routes(routes!(query_books, get_book))
+    OpenApiRouter::new()
+        .routes(routes!(
+            query_books,
+            get_book,
+            library_descriptor,
+            authors,
+            series,
+            tags,
+            publishers,
+            custom_columns,
+            custom_values
+        ))
+        .routes(routes!(
+            thumbnails::ensure,
+            thumbnails::list,
+            thumbnails::image
+        ))
 }
 
 pub fn openapi() -> OpenApi {
     let (_, mut schema) = routes().split_for_parts();
+    // These handlers are mounted from OPDS so byte streaming, range support and
+    // containment checks have one implementation across both transports.
+    for (path, operation_id, content_type, extra_parameters) in [
+        (
+            "/api/books/{book_id}/cover",
+            "getBookCover",
+            "image/jpeg",
+            vec![],
+        ),
+        (
+            "/api/books/{book_id}/files/{format}/{filename}",
+            "downloadBookFile",
+            "application/octet-stream",
+            vec!["format", "filename"],
+        ),
+    ] {
+        let mut parameters = vec![
+            serde_json::json!({"name":"book_id", "in":"path", "required":true, "schema":{"type":"integer", "format":"int32"}}),
+        ];
+        parameters.extend(extra_parameters.into_iter().map(|name| serde_json::json!({"name":name, "in":"path", "required":true, "schema":{"type":"string"}})));
+        let operation = serde_json::json!({
+            "operationId": operation_id,
+            "parameters": parameters,
+            "security": [{"reader":[]}],
+            "responses": {
+                "200": {"description":"Book asset", "content":{content_type:{"schema":{"type":"string", "format":"binary"}}}},
+                "206": {"description":"Partial book asset"},
+                "400": {"description":"Invalid request"},
+                "401": {"description":"Unauthorized"},
+                "404": {"description":"Asset not found"},
+                "416": {"description":"Range not satisfiable"},
+                "503": {"description":"Library unavailable"}
+            }
+        });
+        let mut head = operation.clone();
+        head["operationId"] = serde_json::json!(format!("{operation_id}Head"));
+        schema.paths.paths.insert(
+            path.into(),
+            serde_json::from_value(serde_json::json!({"get":operation,"head":head}))
+                .expect("asset OpenAPI paths are valid"),
+        );
+    }
     schema.info.title = "Citadel library API".into();
     schema.info.version = "1".into();
     schema
@@ -150,14 +308,21 @@ pub fn openapi() -> OpenApi {
     schema
 }
 
-pub fn router(source: Arc<CalibreCatalogSource>, service: &citadel_opds::OpdsService) -> Router {
+pub fn router(
+    source: Arc<CalibreCatalogSource>,
+    service: &citadel_opds::OpdsService,
+    web_directory: Option<&std::path::Path>,
+) -> Router {
     let (router, _) = routes().split_for_parts();
+    let assets = service.book_asset_routes(source.clone(), "/api");
     let schema = openapi();
     let router = router
         .with_state(ApiState {
             source,
             work: Arc::new(Semaphore::new(64)),
+            thumbnails: Default::default(),
         })
+        .merge(assets)
         .route(
             "/api/openapi.json",
             axum::routing::get(move || {
@@ -165,6 +330,10 @@ pub fn router(source: Arc<CalibreCatalogSource>, service: &citadel_opds::OpdsSer
                 async move { Json(schema) }
             }),
         );
+    let router = match web_directory {
+        Some(directory) => router.fallback_service(web::router(directory)),
+        None => router,
+    };
     service
         .protect_http_routes(router)
         .layer(axum::middleware::from_fn(normalize_errors))
