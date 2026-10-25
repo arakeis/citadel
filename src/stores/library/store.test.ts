@@ -290,3 +290,30 @@ describe("remote library initialization", () => {
 		expect(remote.fake.queryBooks).toHaveBeenCalled();
 	});
 });
+
+describe("initial browser thumbnails", () => {
+	it("requests thumbnails for covers in the page inserted during initialization", async () => {
+		initClient.mockReset();
+		const { useLibraryStore } = await importStore();
+		const remote = fakeLibrary();
+		const book = {
+			id: "7",
+			cover_image: {
+				kind: "Remote",
+				local_path: null,
+				url: "https://citadel.example/api/books/7/cover",
+			},
+		};
+		remote.fake.queryBooks.mockResolvedValue({
+			items: [book] as never[],
+			total: 1,
+		});
+		initClient.mockResolvedValueOnce(remote.library);
+		await useLibraryStore.getState().actions.initialize({
+			libraryType: "calibre",
+			connectionType: "remote",
+			url: "https://citadel.example",
+		});
+		expect(remote.fake.ensureCoverThumbnails).toHaveBeenCalledWith(["7"]);
+	});
+});

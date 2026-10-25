@@ -744,6 +744,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => {
 						bookPagesError: firstPage.error,
 					});
 					pendingSwitch = null;
+					ensureCoverThumbs(cache.pages.get(0) ?? []);
 
 					// GC the old generation: in-flight page fetches stamped with
 					// a superseded generation can never land, so drop their

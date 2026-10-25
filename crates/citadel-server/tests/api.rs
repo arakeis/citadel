@@ -36,7 +36,7 @@ async fn fixture() -> (tempfile::TempDir, OpdsService, Router, String) {
             tags: Some(vec!["Reference".into()]),
             series: Some("Contracts".into()),
             series_index: None,
-            publisher: Some("Citadel Press".into()),
+            publisher: None,
             publication_date: None,
             rating: None,
             comments: None,
@@ -289,7 +289,7 @@ async fn browser_descriptor_facets_and_thumbnail_reads_are_protected_and_path_fr
             "/api/authors" => assert_eq!(value[0]["name"], "Test Author"),
             "/api/series" => assert_eq!(value[0]["name"], "Contracts"),
             "/api/tags" => assert_eq!(value[0]["name"], "Reference"),
-            "/api/publishers" => assert_eq!(value[0]["name"], "Citadel Press"),
+            "/api/publishers" => assert_eq!(value, json!([])),
             _ => {}
         }
     }
@@ -485,4 +485,48 @@ fn committed_openapi_matches_routes() {
         serde_json::to_value(api::openapi()).unwrap(),
         "Run bun api:generate"
     );
+}
+
+#[tokio::test]
+async fn missing_cover_does_not_fail_other_thumbnails() {
+    let (directory, service, router, valid_id) = fixture().await;
+    let database = libcalibre::util::get_db_path(directory.path().to_str().unwrap()).unwrap();
+    let mut library = Library::new(database).unwrap();
+    let missing = library
+        .add_book(BookAdd {
+            title: "Missing cover".into(),
+            author_names: vec!["Test Author".into()],
+            tags: None,
+            series: None,
+            series_index: None,
+            publisher: None,
+            publication_date: None,
+            rating: None,
+            comments: None,
+            identifiers: Default::default(),
+            language: None,
+            file_paths: vec![],
+        })
+        .unwrap();
+    let image = image::RgbImage::from_pixel(10, 10, image::Rgb([40, 80, 120]));
+    let mut bytes = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new(&mut bytes)
+        .encode_image(&image)
+        .unwrap();
+    library.set_book_cover(missing.id, bytes).unwrap();
+    let cover = library.resolve_book_cover(missing.id).unwrap();
+    std::fs::remove_file(cover.canonical_path()).unwrap();
+    drop(library);
+    let (status, _, thumbnails) = request(
+        &router,
+        "POST",
+        "/api/covers/thumbnails",
+        json!({"book_ids": [valid_id, missing.id.as_i32().to_string()]}).to_string(),
+        true,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{thumbnails}");
+    assert_eq!(thumbnails.as_array().unwrap().len(), 1);
+    assert_eq!(thumbnails[0]["book_id"], valid_id);
+    service.stop().await;
 }

@@ -27,9 +27,12 @@ result uses Library actions. A provider cannot directly mutate a book.
 Host detection is isolated in Platform adapter selection. Browser adapters never
 invoke native commands: local library discovery yields no candidate, unsupported
 operations fail explicitly, and native window/menu lifecycle methods are inert.
-Remote LibraryCatalog/Library and Metadata HTTP transports remain subsequent
-work; there is no remote client full of placeholder methods. No ordinary library
-operation should gain arbitrary server filesystem discovery or administration.
+The browser LibraryCatalog connects to the serving origin’s configured library;
+its HTTP Library uses generated OpenAPI bindings and exposes a read-only
+capability. Unbounded Library queries are assembled from bounded HTTP pages.
+Initial and subsequently fetched pages request thumbnails on demand. Metadata
+HTTP transport and library mutations remain subsequent work. No ordinary library
+operation gains arbitrary server filesystem discovery or administration.
 
 `bun lint:boundaries` parses TypeScript imports and command accesses. It rejects
 runtime bindings/native imports outside adapters, direct consumption of private

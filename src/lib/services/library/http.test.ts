@@ -73,6 +73,75 @@ describe("HTTP Library", () => {
 		expect(library.getCoverUrlForBook("7")).toBeUndefined();
 	});
 
+	it.each([
+		null,
+		250,
+	])("pages a series request with limit %s within the HTTP bound", async (limit) => {
+		const bodies: LibraryBookQuery[] = [];
+		const library = createHttpLibrary({
+			baseUrl: "https://citadel.test",
+			fetch: async (request) => {
+				const body = (await request.json()) as LibraryBookQuery;
+				bodies.push(body);
+				const offset = body.offset ?? 0;
+				const length = Math.min(body.limit ?? 0, 451 - offset);
+				return json({
+					items: Array.from({ length }, (_, index) => ({
+						...book,
+						id: String(offset + index + 1),
+					})),
+					total: 451,
+				});
+			},
+		});
+		const result = await library.queryBooks({
+			...query,
+			series_id: 8,
+			limit,
+			offset: 1,
+		});
+		expect(result.total).toBe(451);
+		expect(result.items).toHaveLength(limit ?? 450);
+		expect(result.items[0]?.id).toBe("2");
+		expect(result.items.at(-1)?.id).toBe(String((limit ?? 450) + 1));
+		expect(bodies.map(({ limit, offset }) => ({ limit, offset }))).toEqual(
+			limit === null
+				? [
+						{ limit: 200, offset: 1 },
+						{ limit: 200, offset: 201 },
+						{ limit: 200, offset: 401 },
+					]
+				: [
+						{ limit: 200, offset: 1 },
+						{ limit: 50, offset: 201 },
+					],
+		);
+		for (const body of bodies)
+			expect(body).toMatchObject({
+				...query,
+				series_id: 8,
+				limit: expect.any(Number),
+				offset: expect.any(Number),
+			});
+	});
+
+	it("preserves a count-only query without fetching books", async () => {
+		const bodies: LibraryBookQuery[] = [];
+		const library = createHttpLibrary({
+			baseUrl: "https://citadel.test",
+			fetch: async (request) => {
+				bodies.push((await request.json()) as LibraryBookQuery);
+				return json({ items: [], total: 451 });
+			},
+		});
+		const countQuery = { ...query, limit: 0 };
+		expect(await library.queryBooks(countQuery)).toEqual({
+			items: [],
+			total: 451,
+		});
+		expect(bodies).toEqual([countQuery]);
+	});
+
 	it("routes facet and custom-field reads through the generated HTTP contract", async () => {
 		const paths: string[] = [];
 		const library = createHttpLibrary({

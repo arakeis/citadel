@@ -14,6 +14,57 @@
     "version": "1"
   },
   "paths": {
+    "/api/authors": {
+      "get": {
+        "operationId": "listAuthors",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LibraryAuthor"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
     "/api/books/query": {
       "post": {
         "description": "Query the configured library. HTTP requires an explicit limit between 0 and 200; zero returns only the total. No arbitrary library paths are accepted.",
@@ -185,10 +236,786 @@
           }
         ]
       }
+    },
+    "/api/books/{book_id}/cover": {
+      "get": {
+        "operationId": "getBookCover",
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Book asset",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial book asset"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Asset not found"
+          },
+          "416": {
+            "description": "Range not satisfiable"
+          },
+          "503": {
+            "description": "Library unavailable"
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      },
+      "head": {
+        "operationId": "getBookCoverHead",
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Book asset",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial book asset"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Asset not found"
+          },
+          "416": {
+            "description": "Range not satisfiable"
+          },
+          "503": {
+            "description": "Library unavailable"
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/books/{book_id}/custom-values": {
+      "get": {
+        "operationId": "getCustomValues",
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BookCustomValue"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/books/{book_id}/files/{format}/{filename}": {
+      "get": {
+        "operationId": "downloadBookFile",
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Book asset",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial book asset"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Asset not found"
+          },
+          "416": {
+            "description": "Range not satisfiable"
+          },
+          "503": {
+            "description": "Library unavailable"
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      },
+      "head": {
+        "operationId": "downloadBookFileHead",
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Book asset",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial book asset"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Asset not found"
+          },
+          "416": {
+            "description": "Range not satisfiable"
+          },
+          "503": {
+            "description": "Library unavailable"
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/books/{book_id}/thumbnail": {
+      "get": {
+        "operationId": "getCoverThumbnail",
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/covers/thumbnails": {
+      "get": {
+        "description": "Cached thumbnails only. The bounded in-memory index is rebuilt on demand after a restart.",
+        "operationId": "listCoverThumbnails",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CoverThumbnail"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "ensureCoverThumbnails",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThumbnailQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CoverThumbnail"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/custom-columns": {
+      "get": {
+        "operationId": "listCustomColumns",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomColumnDef"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/library": {
+      "get": {
+        "operationId": "getLibrary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryDescriptor"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/publishers": {
+      "get": {
+        "operationId": "listPublishers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LibraryPublisher"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/series": {
+      "get": {
+        "operationId": "listSeries",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LibrarySeries"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "operationId": "listTags",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LibraryTag"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "reader": []
+          }
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "BookCustomValue": {
+        "type": "object",
+        "description": "One book's value for one custom column.",
+        "required": [
+          "column_id",
+          "value"
+        ],
+        "properties": {
+          "column_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value": {
+            "$ref": "#/components/schemas/CustomValueDto"
+          }
+        }
+      },
       "BookFile": {
         "oneOf": [
           {
@@ -223,6 +1050,171 @@
           "AuthorAsc",
           "AuthorDesc"
         ]
+      },
+      "CoverThumbnail": {
+        "type": "object",
+        "required": [
+          "book_id",
+          "url",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "book_id": {
+            "type": "string"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "CustomColumnDef": {
+        "type": "object",
+        "description": "A custom column definition, as exposed to the frontend.",
+        "required": [
+          "column_id",
+          "label",
+          "name",
+          "datatype",
+          "is_multiple",
+          "editable",
+          "supported",
+          "enum_values"
+        ],
+        "properties": {
+          "column_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "datatype": {
+            "type": "string",
+            "description": "Raw Calibre datatype string, e.g. `bool`, `text`, `enumeration`."
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "enum_values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed values for enumeration columns. Empty for other datatypes."
+          },
+          "is_multiple": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string",
+            "description": "Lookup name, e.g. `read` (Calibre exposes it as `#read`)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable heading, e.g. `Read`."
+          },
+          "supported": {
+            "type": "boolean",
+            "description": "Whether reading and writing values of this column is supported."
+          }
+        }
+      },
+      "CustomValueDto": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "Bool"
+            ],
+            "properties": {
+              "Bool": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Int"
+            ],
+            "properties": {
+              "Int": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Float"
+            ],
+            "properties": {
+              "Float": {
+                "type": "number",
+                "format": "double"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Text"
+            ],
+            "properties": {
+              "Text": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "TextMultiple"
+            ],
+            "properties": {
+              "TextMultiple": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "RFC3339 datetime string, e.g. `2024-01-15T10:30:00+00:00`.",
+            "required": [
+              "Datetime"
+            ],
+            "properties": {
+              "Datetime": {
+                "type": "string",
+                "description": "RFC3339 datetime string, e.g. `2024-01-15T10:30:00+00:00`."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Enumeration"
+            ],
+            "properties": {
+              "Enumeration": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "description": "A custom-column value crossing the application boundary.\n\nMirrors `libcalibre::CustomValue`, except datetimes travel as RFC3339\nstrings and integers as `i32` (specta cannot export `i64` without bigint\nsupport)."
       },
       "Identifier": {
         "type": "object",
@@ -458,6 +1450,25 @@
           }
         }
       },
+      "LibraryDescriptor": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "readOnly"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "readOnly": {
+            "type": "boolean"
+          }
+        }
+      },
       "LibraryError": {
         "type": "object",
         "required": [
@@ -483,6 +1494,72 @@
           "unavailable",
           "internal"
         ]
+      },
+      "LibraryPublisher": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "book_count"
+        ],
+        "properties": {
+          "book_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "LibrarySeries": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "book_count"
+        ],
+        "properties": {
+          "book_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "LibraryTag": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "book_count"
+        ],
+        "properties": {
+          "book_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       },
       "LocalFile": {
         "type": "object",
@@ -540,6 +1617,21 @@
             "type": "string"
           }
         }
+      },
+      "ThumbnailQuery": {
+        "type": "object",
+        "required": [
+          "book_ids"
+        ],
+        "properties": {
+          "book_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {

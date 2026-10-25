@@ -233,22 +233,17 @@ async fn custom_values(
 
 fn routes() -> OpenApiRouter<ApiState> {
     OpenApiRouter::new()
-        .routes(routes!(
-            query_books,
-            get_book,
-            library_descriptor,
-            authors,
-            series,
-            tags,
-            publishers,
-            custom_columns,
-            custom_values
-        ))
-        .routes(routes!(
-            thumbnails::ensure,
-            thumbnails::list,
-            thumbnails::image
-        ))
+        .routes(routes!(query_books))
+        .routes(routes!(get_book))
+        .routes(routes!(library_descriptor))
+        .routes(routes!(authors))
+        .routes(routes!(series))
+        .routes(routes!(tags))
+        .routes(routes!(publishers))
+        .routes(routes!(custom_columns))
+        .routes(routes!(custom_values))
+        .routes(routes!(thumbnails::ensure, thumbnails::list))
+        .routes(routes!(thumbnails::image))
 }
 
 pub fn openapi() -> OpenApi {

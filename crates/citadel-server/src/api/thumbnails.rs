@@ -112,7 +112,15 @@ async fn generate(state: ApiState, id: String) -> Result<CachedThumbnail, ApiFai
         .map(libcalibre::BookId::from)
         .map_err(|_| LibraryError::invalid("Invalid book ID"))?;
     let asset = run_library(state.clone(), move |library| {
-        Ok(library.resolve_book_cover(book_id)?)
+        library
+            .resolve_book_cover(book_id)
+            .map_err(|error| match error {
+                libcalibre::CalibreError::AssetFileMissing(_) => LibraryError {
+                    code: LibraryErrorCode::NotFound,
+                    message: "Cover thumbnail unavailable".into(),
+                },
+                error => error.into(),
+            })
     })
     .await?;
     let permit = state

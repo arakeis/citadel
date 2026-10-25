@@ -50,10 +50,32 @@ export const createHttpLibrary = (
 	return {
 		readOnly: true,
 		queryBooks: async (query) => {
-			const page = await unwrap(
-				client.POST("/api/books/query", { body: query }),
-			);
-			return { ...page, items: page.items.map(rememberBook) };
+			if (query.limit !== null && query.limit <= 200) {
+				const page = await unwrap(
+					client.POST("/api/books/query", { body: query }),
+				);
+				return { ...page, items: page.items.map(rememberBook) };
+			}
+
+			const items: LibraryBook[] = [];
+			const offset = query.offset ?? 0;
+			const requestedLimit = query.limit ?? Number.POSITIVE_INFINITY;
+			let total = 0;
+			while (items.length < requestedLimit) {
+				const page = await unwrap(
+					client.POST("/api/books/query", {
+						body: {
+							...query,
+							limit: Math.min(200, requestedLimit - items.length),
+							offset: offset + items.length,
+						},
+					}),
+				);
+				total = page.total;
+				items.push(...page.items.map(rememberBook));
+				if (page.items.length === 0 || offset + items.length >= total) break;
+			}
+			return { items, total };
 		},
 		getBook: async (bookId) =>
 			rememberBook(

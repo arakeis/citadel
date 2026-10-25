@@ -995,7 +995,7 @@ fn public_error(status: StatusCode, message: &'static str) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::identity::{book_identity, library_identity};
+    use crate::identity::book_identity;
     use crate::xml::valid_xml_char;
     use chrono::{DateTime, NaiveDate};
     use diesel::{Connection, RunQueryDsl};
