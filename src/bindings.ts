@@ -64,6 +64,42 @@ async clbQueryDefaultNewLibraryPath() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async clbQueryLibraries() : Promise<Result<LibraryEntry[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("clb_query_libraries") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Adds a library by folder, or returns the existing entry for its Calibre
+ * UUID (updating its path if the library moved).
+ */
+async clbCmdRegisterLibrary(absolutePath: string) : Promise<Result<LibraryEntry, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("clb_cmd_register_library", { absolutePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async clbCmdRenameLibrary(id: string, displayName: string) : Promise<Result<LibraryEntry, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("clb_cmd_rename_library", { id, displayName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async clbCmdImportLegacyLibraries(entries: LibraryEntry[]) : Promise<Result<LegacyLibraryImport, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("clb_cmd_import_legacy_libraries", { entries }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async clbQuerySearchBooks(query: string) : Promise<Result<LibraryBook[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("clb_query_search_books", { query }) };
@@ -407,6 +443,11 @@ async clbCmdOpenSettings() : Promise<void> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+librariesChanged: LibrariesChanged
+}>({
+librariesChanged: "libraries-changed"
+})
 
 /** user-defined constants **/
 
@@ -565,6 +606,18 @@ path: string; publication_date: string | null;
 file_contains_cover: boolean }
 export type ImportableBookType = "Epub" | "Pdf" | "Mobi" | "Text"
 export type ImportableFile = { path: string }
+/**
+ * Result of moving a pre-CDL-45 `settings.json` library list into the registry.
+ */
+export type LegacyLibraryImport = { libraries: LibraryEntry[]; idChanges: LibraryIdChange[]; 
+/**
+ * Entries whose folder no longer holds a readable Calibre library.
+ */
+dropped: LibraryEntry[] }
+/**
+ * The full library list after any change, for every window.
+ */
+export type LibrariesChanged = LibraryEntry[]
 export type LibraryAuthor = { id: string; name: string; sortable_name: string; 
 /**
  * Number of books in the library linked to this author, from
@@ -594,8 +647,10 @@ text: string | null; author_id: string | null; series_id: number | null; tag_id:
  * Page size. `None` returns all matches.
  */
 limit: number | null; offset: number }
+export type LibraryEntry = { id: string; displayName: string; absolutePath: string }
 export type LibraryError = { code: LibraryErrorCode; message: string }
 export type LibraryErrorCode = "invalidArgument" | "unauthorized" | "rateLimited" | "notFound" | "unavailable" | "internal"
+export type LibraryIdChange = { previousId: string; id: string }
 export type LibraryPublisher = { id: number; name: string; book_count: number }
 export type LibrarySeries = { id: number; name: string; book_count: number }
 /**

@@ -37,6 +37,10 @@ export const commandsByAdapter: Record<string, readonly string[]> = {
 		"clbQueryDefaultNewLibraryPath",
 		"clbQueryLibraryStats",
 		"clbQueryPathSyncStatus",
+		"clbQueryLibraries",
+		"clbCmdRegisterLibrary",
+		"clbCmdRenameLibrary",
+		"clbCmdImportLegacyLibraries",
 	],
 	"src/lib/services/metadata/tauri.ts": [
 		"clbQueryMetadataSearch",
@@ -59,6 +63,11 @@ export const commandsByAdapter: Record<string, readonly string[]> = {
 		"clbCmdCheckForUpdates",
 		"clbCmdInstallUpdateIfAvailable",
 	],
+};
+
+/** Generated tauri-specta events, owned like commands. */
+export const eventsByAdapter: Record<string, readonly string[]> = {
+	"src/lib/services/library-catalog/tauri.ts": ["librariesChanged"],
 };
 
 function resolve(file: string, specifier: string): string {
@@ -87,7 +96,9 @@ export function checkServiceBoundaries(file: string, text: string): string[] {
 	);
 	const errors: string[] = [];
 	const commandAliases = new Set<string>();
+	const eventAliases = new Set<string>();
 	const allowed = commandsByAdapter[file];
+	const allowedEvents = eventsByAdapter[file];
 	const nativeAdapter =
 		file.startsWith("src/lib/platform/") &&
 		(file.endsWith("/tauri.ts") || file.endsWith("/runtime.ts"));
@@ -140,12 +151,14 @@ export function checkServiceBoundaries(file: string, text: string): string[] {
 			) {
 				if (named && ts.isNamedImports(named)) {
 					for (const item of named.elements) {
-						if ((item.propertyName?.text ?? item.name.text) === "commands")
-							commandAliases.add(item.name.text);
+						const imported = item.propertyName?.text ?? item.name.text;
+						if (imported === "commands") commandAliases.add(item.name.text);
+						else if (imported === "events" && allowedEvents)
+							eventAliases.add(item.name.text);
 						else if (!item.isTypeOnly)
 							diagnostic(
 								item,
-								"Only commands may be imported at runtime from generated bindings.",
+								"Only commands (and owned events) may be imported at runtime from generated bindings.",
 							);
 					}
 				} else
@@ -214,9 +227,21 @@ export function checkServiceBoundaries(file: string, text: string): string[] {
 			);
 		}
 		if (
+			ts.isPropertyAccessExpression(node) &&
+			ts.isIdentifier(node.expression) &&
+			eventAliases.has(node.expression.text) &&
+			!allowedEvents?.includes(node.name.text)
+		) {
+			diagnostic(
+				node,
+				`Event ${node.name.text} belongs to a different service boundary.`,
+			);
+		}
+		if (
 			ts.isElementAccessExpression(node) &&
 			ts.isIdentifier(node.expression) &&
-			commandAliases.has(node.expression.text)
+			(commandAliases.has(node.expression.text) ||
+				eventAliases.has(node.expression.text))
 		) {
 			const key = node.argumentExpression;
 			if (!ts.isStringLiteral(key) || !allowed?.includes(key.text))

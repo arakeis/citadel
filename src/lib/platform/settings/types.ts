@@ -58,6 +58,10 @@ export interface SettingsSchema {
 	autoUpdateCheckingEnabled: boolean;
 	hasCompletedFirstLaunch: boolean;
 	activeLibraryId: string;
+	/**
+	 * Legacy: the library list now lives in citadel.db (ADR 0009). A list
+	 * found here is imported once on launch and then cleared.
+	 */
 	libraryPaths: LibraryPath[];
 	/** @deprecated Read once at migration into `metadataProviders`; not written. */
 	hardcoverApiKey: string;

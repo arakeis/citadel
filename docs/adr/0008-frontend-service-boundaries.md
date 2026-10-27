@@ -7,7 +7,7 @@ belong exclusively to their owning adapters.
 | Boundary | Responsibility | Implementation |
 | --- | --- | --- |
 | Library | Queries and mutations on the selected library, custom fields, genres, covers and import commit | `src/lib/services/library` |
-| LibraryCatalog | Discover, validate, inspect, create and open a library | `src/lib/services/library-catalog` |
+| LibraryCatalog | Discover, validate, inspect, create, open and register libraries (the citadel.db library list) | `src/lib/services/library-catalog` |
 | Metadata | Provider search, ISBN lookup and provider credential/connectivity tests | `src/lib/services/metadata` |
 | Platform | Settings persistence, clipboard, dialogs, paths, menu events, window lifecycle/theme and desktop updates | `src/lib/platform` |
 | OPDS administration | Local listener configuration and credentials | `src/lib/services/opds` |

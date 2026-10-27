@@ -66,6 +66,21 @@ export const App = () => {
 		}
 	}, [hydrated, platform]);
 
+	const droppedLibraries = useSettings((state) => state.droppedLibraries);
+	useEffect(() => {
+		if (droppedLibraries.length === 0) return;
+		const names = droppedLibraries
+			.map(({ displayName, absolutePath }) => displayName || absolutePath)
+			.join(", ");
+		const one = droppedLibraries.length === 1;
+		toast.show({
+			id: "dropped-libraries",
+			title: one ? "A library is missing" : "Some libraries are missing",
+			message: `Couldn’t find ${names}, so ${one ? "it’s" : "they’re"} no longer in your library list. Add ${one ? "it" : "them"} again from the new location.`,
+			duration: 15000,
+		});
+	}, [droppedLibraries]);
+
 	useEffect(() => {
 		if (!hydrated || !platform.capabilities.supportsAutoUpdates || IS_DEV)
 			return;

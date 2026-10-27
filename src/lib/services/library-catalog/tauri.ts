@@ -1,4 +1,4 @@
-import { commands } from "@/bindings";
+import { commands, events } from "@/bindings";
 import { createTauriLibrary } from "../library/tauri";
 import type { LibraryCatalog } from "./types";
 
@@ -27,4 +27,12 @@ export const tauriLibraryCatalog: LibraryCatalog = {
 		unwrap(await commands.clbQueryDefaultNewLibraryPath()),
 	stats: async (path) => unwrap(await commands.clbQueryLibraryStats(path)),
 	syncStatus: (path) => commands.clbQueryPathSyncStatus(path),
+	list: async () => unwrap(await commands.clbQueryLibraries()),
+	register: async (path) => unwrap(await commands.clbCmdRegisterLibrary(path)),
+	rename: async (id, displayName) =>
+		unwrap(await commands.clbCmdRenameLibrary(id, displayName)),
+	importLegacy: async (entries) =>
+		unwrap(await commands.clbCmdImportLegacyLibraries(entries)),
+	onChange: (listener) =>
+		events.librariesChanged.listen((event) => listener(event.payload)),
 };
