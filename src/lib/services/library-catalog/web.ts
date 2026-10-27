@@ -33,4 +33,9 @@ export const webLibraryCatalog: LibraryCatalog = {
 	defaultNewPath: unavailable,
 	stats: unavailable,
 	syncStatus: async () => ({ synced: false, provider: null }),
+	list: async () => [],
+	register: unavailable,
+	rename: unavailable,
+	importLegacy: unavailable,
+	onChange: async () => () => {},
 };

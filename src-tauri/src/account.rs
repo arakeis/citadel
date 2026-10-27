@@ -55,6 +55,10 @@ impl LocalAccount {
         Ok(account)
     }
 
+    pub fn store(&self) -> &CitadelStore {
+        &self.store
+    }
+
     pub fn actor(&self) -> Actor {
         Actor::User {
             id: self.user_id.clone(),

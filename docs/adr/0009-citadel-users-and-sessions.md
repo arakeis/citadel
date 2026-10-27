@@ -78,22 +78,28 @@ is non-exhaustive so non-human actors can follow.
 ### Desktop
 
 The desktop app has one real user, the local user, created on first launch and
-named after the OS account. It has no sign-in password. Its app password is the
-desktop's OPDS sharing password: Sharing settings reveal, set, generate and
-clear it, and choosing an OPDS username renames the local user. Desktop sharing
-may still run without sign-in on local networks; only the server always
-requires it.
+named after the OS account. It has no sign-in password and is granted every
+library it registers. Its app password is the desktop's OPDS sharing password:
+Sharing settings reveal, set, generate and clear it, and choosing an OPDS
+username renames the local user. Desktop sharing may still run without sign-in
+on local networks; only the server always requires it.
 
-On first launch after upgrading, `opds-credentials.json` becomes the local
-user's name and app password and is deleted; unreadable verifier-format files
-are discarded.
+The desktop's library list is the registry. `settings.json` keeps only the
+active library's Calibre UUID. Windows learn of list changes through a
+`libraries-changed` event.
+
+On first launch after upgrading, the desktop migrates once:
+`opds-credentials.json` becomes the local user's name and app password and is
+deleted (unreadable verifier-format files are discarded), and the
+`settings.json` library list is registered under each library's Calibre UUID,
+keeping display names and remapping the active library. Entries whose folder
+no longer holds a readable library are dropped, and the user is told once.
 
 ## Consequences
 
 Users, grants and app passwords are per installation, not per library:
 copying a library never copies access. The OPDS runtime no longer persists
-credentials; hosts supply them from `citadel.db`. The desktop's `settings.json`
-library list moves into the registry in a follow-up.
+credentials; hosts supply them from `citadel.db`.
 
 Deferred without blocking this model: roles beyond access, library owners,
 instance permissions, anonymous access, download-only permission, sign-up,

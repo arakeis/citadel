@@ -3,6 +3,7 @@ import bindingsSource from "../../src/bindings.ts?raw";
 import {
 	checkServiceBoundaries,
 	commandsByAdapter,
+	eventsByAdapter,
 } from "./service-boundaries";
 
 describe("service import boundaries", () => {
@@ -13,6 +14,34 @@ describe("service import boundaries", () => {
 		const owned = Object.values(commandsByAdapter).flat().sort();
 		expect(owned).toEqual(registered);
 		expect(new Set(owned).size).toBe(owned.length);
+	});
+	it("assigns every generated event to exactly one adapter, which alone may import it", () => {
+		const block = bindingsSource.match(
+			/export const events = __makeEvents__<\{([^}]*)\}>/,
+		)?.[1];
+		const registered = [...(block ?? "").matchAll(/^(\w+):/gm)]
+			.map((match) => match[1])
+			.sort();
+		expect(Object.values(eventsByAdapter).flat().sort()).toEqual(registered);
+		const owner = "src/lib/services/library-catalog/tauri.ts";
+		expect(
+			checkServiceBoundaries(
+				owner,
+				'import {events} from "@/bindings"; events.librariesChanged.listen(() => {});',
+			),
+		).toEqual([]);
+		expect(
+			checkServiceBoundaries(
+				owner,
+				'import {events} from "@/bindings"; events.somethingElse.listen(() => {});',
+			),
+		).toHaveLength(1);
+		expect(
+			checkServiceBoundaries(
+				"src/lib/services/library/tauri.ts",
+				'import {events} from "@/bindings";',
+			),
+		).toHaveLength(1);
 	});
 	it("permits generated contract types but rejects mixed runtime imports and re-exports", () => {
 		const file = "src/components/Book.tsx";

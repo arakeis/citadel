@@ -9,7 +9,7 @@ use std::sync::{
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use tauri::Manager;
-use tauri_specta::{collect_commands, Builder};
+use tauri_specta::{collect_commands, collect_events, Builder};
 
 mod account;
 mod app_updates;
@@ -25,68 +25,75 @@ mod opds;
 mod state;
 
 fn command_builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new().commands(collect_commands![
-        // Library and initialization commands
-        library::init_client,
-        library::query::clb_query_is_path_valid_library,
-        library::command::clb_cmd_create_library,
-        // First-run onboarding: detection-led library setup (CDL-19)
-        library::query::clb_query_detect_calibre_library,
-        library::query::clb_query_library_stats,
-        library::query::clb_query_path_sync_status,
-        library::query::clb_query_default_new_library_path,
-        // Book query commands
-        library::query::clb_query_search_books,
-        library::query::clb_query_books,
-        library::query::clb_query_get_book,
-        library::query::clb_query_is_file_importable,
-        library::query::clb_query_importable_file_metadata,
-        library::query::clb_query_list_all_filetypes,
-        // Series query commands
-        library::query::clb_query_list_series,
-        // Tag query commands
-        library::query::clb_query_list_tags,
-        // Publisher query commands
-        library::query::clb_query_list_publishers,
-        // Book manipulation commands
-        library::command::clb_cmd_create_book,
-        library::command::clb_cmd_update_book,
-        library::command::clb_cmd_upsert_book_identifier,
-        library::command::clb_cmd_delete_book_identifier,
-        library::command::clb_cmd_set_book_cover_from_url,
-        library::command::clb_cmd_ensure_cover_thumbnails,
-        library::command::clb_cmd_warm_cover_thumbnails,
-        library::query::clb_query_list_cover_thumbnails,
-        // Custom column commands
-        library::query::clb_query_list_custom_columns,
-        library::query::clb_query_get_custom_values_for_book,
-        library::command::clb_cmd_set_custom_value,
-        library::command::clb_cmd_add_book_genres,
-        // Author query and manipulation commands
-        library::query::clb_query_list_all_authors,
-        library::command::clb_cmd_create_authors,
-        library::command::clb_cmd_update_author,
-        library::command::clb_cmd_delete_author,
-        library::command::clb_cmd_delete_books,
-        // Metadata-provider commands (Hardcover, LoC, DNB, Open Library)
-        metadata::commands::clb_cmd_test_metadata_provider,
-        metadata::commands::clb_query_metadata_search,
-        metadata::commands::clb_query_metadata_by_isbn,
-        app_updates::clb_cmd_check_for_updates,
-        app_updates::clb_cmd_install_update_if_available,
-        // OPDS sharing commands
-        opds::clb_query_opds_credential_status,
-        opds::clb_cmd_configure_opds_credentials,
-        opds::clb_cmd_generate_opds_credentials,
-        opds::clb_cmd_clear_opds_credentials,
-        opds::clb_cmd_start_opds,
-        opds::clb_cmd_stop_opds,
-        opds::clb_cmd_reconfigure_opds,
-        opds::clb_query_opds_status,
-        opds::clb_query_opds_credential_secret,
-        // Window commands
-        menu::clb_cmd_open_settings,
-    ])
+    Builder::<tauri::Wry>::new()
+        .events(collect_events![library::registry::LibrariesChanged])
+        .commands(collect_commands![
+            // Library and initialization commands
+            library::init_client,
+            library::query::clb_query_is_path_valid_library,
+            library::command::clb_cmd_create_library,
+            // First-run onboarding: detection-led library setup (CDL-19)
+            library::query::clb_query_detect_calibre_library,
+            library::query::clb_query_library_stats,
+            library::query::clb_query_path_sync_status,
+            library::query::clb_query_default_new_library_path,
+            // Library registry (citadel.db)
+            library::registry::clb_query_libraries,
+            library::registry::clb_cmd_register_library,
+            library::registry::clb_cmd_rename_library,
+            library::registry::clb_cmd_import_legacy_libraries,
+            // Book query commands
+            library::query::clb_query_search_books,
+            library::query::clb_query_books,
+            library::query::clb_query_get_book,
+            library::query::clb_query_is_file_importable,
+            library::query::clb_query_importable_file_metadata,
+            library::query::clb_query_list_all_filetypes,
+            // Series query commands
+            library::query::clb_query_list_series,
+            // Tag query commands
+            library::query::clb_query_list_tags,
+            // Publisher query commands
+            library::query::clb_query_list_publishers,
+            // Book manipulation commands
+            library::command::clb_cmd_create_book,
+            library::command::clb_cmd_update_book,
+            library::command::clb_cmd_upsert_book_identifier,
+            library::command::clb_cmd_delete_book_identifier,
+            library::command::clb_cmd_set_book_cover_from_url,
+            library::command::clb_cmd_ensure_cover_thumbnails,
+            library::command::clb_cmd_warm_cover_thumbnails,
+            library::query::clb_query_list_cover_thumbnails,
+            // Custom column commands
+            library::query::clb_query_list_custom_columns,
+            library::query::clb_query_get_custom_values_for_book,
+            library::command::clb_cmd_set_custom_value,
+            library::command::clb_cmd_add_book_genres,
+            // Author query and manipulation commands
+            library::query::clb_query_list_all_authors,
+            library::command::clb_cmd_create_authors,
+            library::command::clb_cmd_update_author,
+            library::command::clb_cmd_delete_author,
+            library::command::clb_cmd_delete_books,
+            // Metadata-provider commands (Hardcover, LoC, DNB, Open Library)
+            metadata::commands::clb_cmd_test_metadata_provider,
+            metadata::commands::clb_query_metadata_search,
+            metadata::commands::clb_query_metadata_by_isbn,
+            app_updates::clb_cmd_check_for_updates,
+            app_updates::clb_cmd_install_update_if_available,
+            // OPDS sharing commands
+            opds::clb_query_opds_credential_status,
+            opds::clb_cmd_configure_opds_credentials,
+            opds::clb_cmd_generate_opds_credentials,
+            opds::clb_cmd_clear_opds_credentials,
+            opds::clb_cmd_start_opds,
+            opds::clb_cmd_stop_opds,
+            opds::clb_cmd_reconfigure_opds,
+            opds::clb_query_opds_status,
+            opds::clb_query_opds_credential_secret,
+            // Window commands
+            menu::clb_cmd_open_settings,
+        ])
 }
 
 fn run_tauri_backend() -> std::io::Result<()> {
@@ -121,8 +128,8 @@ fn run_tauri_backend() -> std::io::Result<()> {
         .setup(move |app| {
             builder.mount_events(app);
 
-            // citadel.db lives in app data: the local user and its sharing
-            // password (ADR 0009).
+            // citadel.db lives in app data: the local user, its sharing
+            // password and the library list (ADR 0009).
             let account = account::LocalAccount::open(&app.path().app_data_dir()?)?;
             let sharing = citadel_opds::OpdsService::with_ephemeral_credentials(
                 Arc::new(opds_state.clone()),

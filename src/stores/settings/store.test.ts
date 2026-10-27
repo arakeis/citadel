@@ -6,7 +6,59 @@ import {
 	type SettingsValue,
 	type SmartShelfFilter,
 } from "@/lib/platform/settings/types";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LibraryEntry } from "@/bindings";
+
+// An in-memory stand-in for the citadel.db registry behind LibraryCatalog.
+// Paths under /missing are treated as folders that no longer hold a library.
+const registry = vi.hoisted(() => ({
+	libraries: [] as LibraryEntry[],
+}));
+const idFor = (path: string) => `calibre-${path}`;
+vi.mock("@/lib/services/library-catalog", () => ({
+	libraryCatalog: {
+		list: async () => [...registry.libraries],
+		register: async (path: string) => {
+			const existing = registry.libraries.find(({ id }) => id === idFor(path));
+			if (existing) return existing;
+			const library = {
+				id: idFor(path),
+				displayName: path.split("/").at(-1) ?? "",
+				absolutePath: path,
+			};
+			registry.libraries.push(library);
+			return library;
+		},
+		rename: async (id: string, displayName: string) => {
+			const library = registry.libraries.find((entry) => entry.id === id);
+			if (!library) throw new Error(`No library has ID '${id}'.`);
+			library.displayName = displayName;
+			return { ...library };
+		},
+		importLegacy: async (entries: LibraryEntry[]) => {
+			const kept = entries.filter(
+				({ absolutePath }) => !absolutePath.startsWith("/missing"),
+			);
+			for (const entry of kept)
+				registry.libraries.push({ ...entry, id: idFor(entry.absolutePath) });
+			return {
+				libraries: [...registry.libraries],
+				idChanges: kept.map((entry) => ({
+					previousId: entry.id,
+					id: idFor(entry.absolutePath),
+				})),
+				dropped: entries.filter(({ absolutePath }) =>
+					absolutePath.startsWith("/missing"),
+				),
+			};
+		},
+		onChange: async () => () => {},
+	},
+}));
+
+beforeEach(() => {
+	registry.libraries = [];
+});
 
 const setSetting = <K extends SettingsKey>(
 	target: SettingsSchema,
@@ -253,10 +305,21 @@ describe("useSettings smart shelves", () => {
 	});
 });
 
-describe("useSettings library rename", () => {
+describe("useSettings library registry", () => {
 	const CALIBRE_PATH = "/Users/reader/Books/Calibre Library";
 
-	it("renameLibrary trims the name and persists it", async () => {
+	it("createLibrary registers the folder and returns its Calibre ID", async () => {
+		const useSettings = await importStore(createFakeSettingsManager());
+		const id = await useSettings.getState().createLibrary(CALIBRE_PATH);
+
+		expect(id).toBe(idFor(CALIBRE_PATH));
+		expect(await useSettings.getState().createLibrary(CALIBRE_PATH)).toBe(id);
+		expect(useSettings.getState().libraryPaths).toEqual([
+			{ id, displayName: "Calibre Library", absolutePath: CALIBRE_PATH },
+		]);
+	});
+
+	it("renameLibrary trims the name and stores it in the registry", async () => {
 		const manager = createFakeSettingsManager();
 		const useSettings = await importStore(manager);
 		const id = await useSettings.getState().createLibrary(CALIBRE_PATH);
@@ -267,31 +330,22 @@ describe("useSettings library rename", () => {
 			.getState()
 			.libraryPaths.find((library) => library.id === id);
 		expect(renamed?.displayName).toBe("Main Shelf");
-
-		const persisted = await manager.get("libraryPaths");
-		expect(persisted).toContainEqual({
-			id,
-			displayName: "Main Shelf",
-			absolutePath: CALIBRE_PATH,
-		});
+		expect(registry.libraries[0]?.displayName).toBe("Main Shelf");
+		expect(await manager.get("libraryPaths")).toEqual([]);
 	});
 
-	it("renameLibrary is a no-op (no persist) when the trimmed name is unchanged", async () => {
-		const manager = createFakeSettingsManager();
-		const setSpy = vi.spyOn(manager, "set");
-		const useSettings = await importStore(manager);
+	it("renameLibrary is a no-op when the trimmed name is unchanged", async () => {
+		const useSettings = await importStore(createFakeSettingsManager());
 		const id = await useSettings.getState().createLibrary(CALIBRE_PATH);
-		setSpy.mockClear();
+		const before = useSettings.getState().libraryPaths;
 
 		await useSettings.getState().renameLibrary(id, "  Calibre Library  ");
 
-		expect(setSpy).not.toHaveBeenCalled();
-		expect(useSettings.getState().libraryPaths).toHaveLength(1);
+		expect(useSettings.getState().libraryPaths).toBe(before);
 	});
 
 	it("renameLibrary rejects empty and whitespace-only names without changing state", async () => {
-		const manager = createFakeSettingsManager();
-		const useSettings = await importStore(manager);
+		const useSettings = await importStore(createFakeSettingsManager());
 		const id = await useSettings.getState().createLibrary(CALIBRE_PATH);
 
 		await expect(useSettings.getState().renameLibrary(id, "")).rejects.toThrow(
@@ -300,13 +354,7 @@ describe("useSettings library rename", () => {
 		await expect(
 			useSettings.getState().renameLibrary(id, "   "),
 		).rejects.toThrow("Library name cannot be empty");
-
-		const persisted = await manager.get("libraryPaths");
-		expect(persisted).toContainEqual({
-			id,
-			displayName: "Calibre Library",
-			absolutePath: CALIBRE_PATH,
-		});
+		expect(registry.libraries[0]?.displayName).toBe("Calibre Library");
 	});
 
 	it("renameLibrary throws for an unknown id", async () => {
@@ -317,7 +365,7 @@ describe("useSettings library rename", () => {
 		).rejects.toThrow("No library with id no-such-library");
 	});
 
-	it("a renamed library survives an app restart with the same manager", async () => {
+	it("a renamed library survives an app restart", async () => {
 		const manager = createFakeSettingsManager();
 		const first = await importStore(manager);
 		const id = await first.getState().createLibrary(CALIBRE_PATH);
@@ -329,5 +377,50 @@ describe("useSettings library rename", () => {
 			second.getState().libraryPaths.find((library) => library.id === id)
 				?.displayName,
 		).toBe("Main Shelf");
+	});
+
+	it("imports a legacy settings.json list once, remapping the active library and reporting missing folders", async () => {
+		const manager = createFakeSettingsManager();
+		await manager.initialize();
+		await manager.set("libraryPaths", [
+			{ id: "old-1", displayName: "Fiction", absolutePath: "/books/fiction" },
+			{ id: "old-2", displayName: "Gone", absolutePath: "/missing/gone" },
+		]);
+		await manager.set("activeLibraryId", "old-1");
+
+		const useSettings = await importStore(manager);
+		const state = useSettings.getState();
+
+		expect(state.libraryPaths).toEqual([
+			{
+				id: idFor("/books/fiction"),
+				displayName: "Fiction",
+				absolutePath: "/books/fiction",
+			},
+		]);
+		expect(state.activeLibraryId).toBe(idFor("/books/fiction"));
+		expect(
+			state.droppedLibraries.map(({ displayName }) => displayName),
+		).toEqual(["Gone"]);
+		expect(await manager.get("libraryPaths")).toEqual([]);
+		expect(await manager.get("activeLibraryId")).toBe(idFor("/books/fiction"));
+
+		const restarted = await importStore(manager);
+		expect(restarted.getState().droppedLibraries).toEqual([]);
+		expect(restarted.getState().libraryPaths).toHaveLength(1);
+	});
+
+	it("clears the active library when the legacy active entry was dropped", async () => {
+		const manager = createFakeSettingsManager();
+		await manager.initialize();
+		await manager.set("libraryPaths", [
+			{ id: "old-2", displayName: "Gone", absolutePath: "/missing/gone" },
+		]);
+		await manager.set("activeLibraryId", "old-2");
+
+		const useSettings = await importStore(manager);
+
+		expect(useSettings.getState().activeLibraryId).toBe("");
+		expect(useSettings.getState().libraryPaths).toEqual([]);
 	});
 });

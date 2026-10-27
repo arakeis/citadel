@@ -6,6 +6,7 @@ pub mod command;
 mod delete_books;
 pub mod onboarding;
 pub mod query;
+pub mod registry;
 
 #[derive(Serialize, specta::Type)]
 pub struct CalibreClientConfig {

@@ -3,6 +3,7 @@ import type { MetadataProvider } from "@/bindings";
 import type { Option } from "@/lib/option";
 import { none, some } from "@/lib/option";
 import { migrateSettings } from "@/lib/platform/settings/migrate";
+import { libraryCatalog } from "@/lib/services/library-catalog";
 import {
 	defaultSettings,
 	type LibraryPath,
@@ -19,6 +20,8 @@ import {
 interface SettingsStore extends SettingsSchema {
 	hydrated: boolean;
 	settingsManager: SettingsManager | null;
+	/** Legacy settings.json libraries that no longer exist; shown once. */
+	droppedLibraries: LibraryPath[];
 
 	// Lifecycle
 	init: (settingsManager: SettingsManager) => Promise<void>;
@@ -60,6 +63,44 @@ const validateShelfName = (name: string, otherShelves: SmartShelf[]) => {
 	return trimmed;
 };
 
+const upsertLibrary = (libraries: LibraryPath[], library: LibraryPath) =>
+	libraries.some(({ id }) => id === library.id)
+		? libraries.map((existing) =>
+				existing.id === library.id ? library : existing,
+			)
+		: [...libraries, library];
+
+/**
+ * The library list lives in citadel.db (ADR 0009). A list still in
+ * settings.json is imported once, keyed by Calibre UUID; entries whose folder
+ * is gone are dropped and reported.
+ */
+const loadLibraries = async (
+	settingsManager: SettingsManager,
+	settings: SettingsSchema,
+): Promise<
+	Pick<SettingsStore, "libraryPaths" | "activeLibraryId" | "droppedLibraries">
+> => {
+	if (settings.libraryPaths.length === 0)
+		return {
+			libraryPaths: await libraryCatalog.list(),
+			activeLibraryId: settings.activeLibraryId,
+			droppedLibraries: [],
+		};
+	const result = await libraryCatalog.importLegacy(settings.libraryPaths);
+	const activeLibraryId =
+		result.idChanges.find(
+			({ previousId }) => previousId === settings.activeLibraryId,
+		)?.id ?? "";
+	await settingsManager.set("activeLibraryId", activeLibraryId);
+	await settingsManager.set("libraryPaths", []);
+	return {
+		libraryPaths: result.libraries,
+		activeLibraryId,
+		droppedLibraries: result.dropped,
+	};
+};
+
 const setSetting = <K extends SettingsKey>(
 	target: SettingsSchema,
 	key: K,
@@ -91,6 +132,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
 	...defaultSettings,
 	hydrated: false,
 	settingsManager: null,
+	droppedLibraries: [],
 
 	init: async (settingsManager: SettingsManager) => {
 		set({ settingsManager });
@@ -107,7 +149,13 @@ export const useSettings = create<SettingsStore>((set, get) => ({
 			// One-time schema migration (e.g. flat Hardcover keys -> provider
 			// block). Persist only when the version actually advanced.
 			const migrated = migrateSettings(initialSettings);
-			set({ ...migrated, hydrated: true });
+			const libraries = await loadLibraries(settingsManager, migrated).catch(
+				(error: unknown) => {
+					console.error("Failed to load libraries:", error);
+					return { libraryPaths: [], droppedLibraries: [] };
+				},
+			);
+			set({ ...migrated, ...libraries, hydrated: true });
 			if (
 				migrated.settingsSchemaVersion !== initialSettings.settingsSchemaVersion
 			) {
@@ -125,9 +173,12 @@ export const useSettings = create<SettingsStore>((set, get) => ({
 			// window changing theme or the active library) into this window's
 			// store. Receiving never re-persists, so there is no echo loop.
 			void settingsManager.onChange?.((key, value) => {
-				if (Object.is(get()[key], value)) return;
+				// The library list is citadel.db's; settings.json only ever
+				// holds the emptied legacy key.
+				if (key === "libraryPaths" || Object.is(get()[key], value)) return;
 				set({ [key]: value } as Partial<SettingsStore>);
 			});
+			void libraryCatalog.onChange((libraryPaths) => set({ libraryPaths }));
 		} catch (e) {
 			console.error("Failed to initialize settings:", e);
 		}
@@ -154,33 +205,13 @@ export const useSettings = create<SettingsStore>((set, get) => ({
 	},
 
 	createLibrary: async (absolutePath) => {
-		const libraryId = uuidv4();
-		const displayName = absolutePath.split("/").at(-1) ?? "";
-		const { libraryPaths } = get();
-
-		const wouldBeDuplicate = libraryPaths.find(
-			(library) => library.absolutePath === absolutePath,
-		);
-
-		if (wouldBeDuplicate) {
-			return wouldBeDuplicate.id;
-		}
-
-		await persistSetting(set, get, "libraryPaths", [
-			...libraryPaths,
-			{
-				id: libraryId,
-				displayName,
-				absolutePath,
-			},
-		]);
-
-		return libraryId;
+		const library = await libraryCatalog.register(absolutePath);
+		set({ libraryPaths: upsertLibrary(get().libraryPaths, library) });
+		return library.id;
 	},
 
 	renameLibrary: async (id, displayName) => {
-		const { libraryPaths } = get();
-		const target = libraryPaths.find((library) => library.id === id);
+		const target = get().libraryPaths.find((library) => library.id === id);
 		if (!target) {
 			throw new Error(`No library with id ${id}`);
 		}
@@ -191,14 +222,8 @@ export const useSettings = create<SettingsStore>((set, get) => ({
 		}
 		if (trimmed === target.displayName) return;
 
-		await persistSetting(
-			set,
-			get,
-			"libraryPaths",
-			libraryPaths.map((library) =>
-				library.id === id ? { ...library, displayName: trimmed } : library,
-			),
-		);
+		const library = await libraryCatalog.rename(id, trimmed);
+		set({ libraryPaths: upsertLibrary(get().libraryPaths, library) });
 	},
 
 	getActiveLibrary: () => {
