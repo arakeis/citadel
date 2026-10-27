@@ -5,7 +5,7 @@ use crate::libs::cover_thumbs::{self, CoverThumbnail};
 use crate::state::CitadelState;
 use citadel_core::{
     contracts::{custom_columns::CustomValueDto, AuthorUpdate, BookUpdate, NewAuthor},
-    LibraryAuthor,
+    Actor, LibraryAuthor,
 };
 
 use super::onboarding::{self, CreateTargetBlocker};
@@ -24,7 +24,7 @@ pub fn clb_cmd_update_book(
     updates: BookUpdate,
 ) -> Result<i32, String> {
     state
-        .with_library_service(|service| service.update_book(&book_id, updates))
+        .with_library_service(|service| service.update_book(&Actor::Local, &book_id, updates))
         .map_err(|error| error.to_string())
 }
 
@@ -37,7 +37,9 @@ pub fn clb_cmd_set_custom_value(
     value: Option<CustomValueDto>,
 ) -> Result<(), String> {
     state
-        .with_library_service(|service| service.set_custom_value(&book_id, column_id, value))
+        .with_library_service(|service| {
+            service.set_custom_value(&Actor::Local, &book_id, column_id, value)
+        })
         .map_err(|error| error.to_string())
 }
 
@@ -49,7 +51,7 @@ pub fn clb_cmd_add_book_genres(
     genres: Vec<String>,
 ) -> Result<(), String> {
     state
-        .with_library_service(|service| service.add_genres(&book_id, genres))
+        .with_library_service(|service| service.add_genres(&Actor::Local, &book_id, genres))
         .map_err(|error| error.to_string())
 }
 
@@ -105,7 +107,7 @@ pub fn clb_cmd_create_book(
     md: ImportableBookMetadata,
 ) -> Result<String, String> {
     state
-        .with_library_service(|service| service.create_book(md.to_book_add()))
+        .with_library_service(|service| service.create_book(&Actor::Local, md.to_book_add()))
         .map_err(|error| error.to_string())
 }
 
@@ -120,7 +122,7 @@ pub fn clb_cmd_upsert_book_identifier(
 ) -> Result<(), String> {
     state
         .with_library_service(|service| {
-            service.upsert_identifier(&book_id, label, value, existing_id)
+            service.upsert_identifier(&Actor::Local, &book_id, label, value, existing_id)
         })
         .map_err(|error| error.to_string())
 }
@@ -133,7 +135,9 @@ pub fn clb_cmd_delete_book_identifier(
     identifier_id: i32,
 ) -> Result<(), String> {
     state
-        .with_library_service(|service| service.delete_identifier(&book_id, identifier_id))
+        .with_library_service(|service| {
+            service.delete_identifier(&Actor::Local, &book_id, identifier_id)
+        })
         .map_err(|error| error.to_string())
 }
 
@@ -182,7 +186,7 @@ async fn download_book_cover(
             return Err("Library changed while downloading the cover".to_string());
         }
         citadel_core::library::LibraryService::new(library, &citadel_core::AssetUrlBuilder)
-            .set_cover(&book_id, bytes.to_vec())
+            .set_cover(&Actor::Local, &book_id, bytes.to_vec())
             .map_err(|error| error.to_string())
     })?
 }
@@ -306,7 +310,7 @@ pub fn clb_cmd_update_author(
     updates: AuthorUpdate,
 ) -> Result<i32, String> {
     state
-        .with_library_service(|service| service.update_author(&author_id, updates))
+        .with_library_service(|service| service.update_author(&Actor::Local, &author_id, updates))
         .map_err(|error| error.to_string())
 }
 
@@ -317,7 +321,7 @@ pub fn clb_cmd_delete_author(
     author_id: String,
 ) -> Result<(), String> {
     state
-        .with_library_service(|service| service.delete_author(&author_id))
+        .with_library_service(|service| service.delete_author(&Actor::Local, &author_id))
         .map_err(|error| error.to_string())
 }
 
@@ -419,7 +423,7 @@ pub fn clb_cmd_create_authors(
     new_authors: Vec<NewAuthor>,
 ) -> Result<Vec<LibraryAuthor>, String> {
     state
-        .with_library_service(|service| service.create_authors(new_authors))
+        .with_library_service(|service| service.create_authors(&Actor::Local, new_authors))
         .map_err(|error| error.to_string())
 }
 

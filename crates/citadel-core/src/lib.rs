@@ -5,13 +5,16 @@
 //! [`Book`](libcalibre::library::Book) into them. None of this depends on
 //! Tauri. Shared queries and mutations live in [`library::LibraryService`], with
 //! serializable inputs in [`contracts`] and transport-independent [`error`] codes.
+//! Every write names the [`Actor`] it is performed for.
 //! The cover/file URL scheme is injected through [`BookUrlBuilder`]: desktop
 //! supplies [`AssetUrlBuilder`] and the server supplies [`HttpUrlBuilder`].
 
+mod actor;
 mod author;
 mod book;
 mod url;
 
+pub use actor::Actor;
 pub use author::LibraryAuthor;
 pub use book::{
     BookFile, Identifier, LibraryBook, LocalFile, LocalOrRemote, LocalOrRemoteUrl, RemoteFile,
