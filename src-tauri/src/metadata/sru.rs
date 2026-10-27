@@ -180,5 +180,15 @@ mod live_tests {
             .await
             .unwrap();
         assert!(!by_title.is_empty());
+        let by_mixed = search(bnf, "Le vol du dragon, caffrey, pocket", None)
+            .await
+            .unwrap();
+        let dragon = by_mixed
+            .iter()
+            .find(|b| b.provider_id == "cb35022351p")
+            .unwrap();
+        assert_eq!(dragon.series.as_deref(), Some("La Ballade de Pern"));
+        assert_eq!(dragon.series_index, Some(1.0));
+        assert_eq!(dragon.isbn.as_deref(), Some("2266028790"));
     }
 }
