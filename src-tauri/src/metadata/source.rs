@@ -33,6 +33,10 @@ pub struct SruEndpoint {
     pub title_index: &'static str,
     /// CQL relation for title lookups (`=`, or e.g. `all` for every word).
     pub title_relation: &'static str,
+    /// A broader index (matching any record field, so author and publisher
+    /// words count) to retry a title lookup against when the title index finds
+    /// nothing, e.g. "titre, auteur, éditeur" typed as one query.
+    pub title_fallback_index: Option<&'static str>,
     /// Extra CQL clause ANDed onto title lookups (e.g. printed texts only).
     pub title_filter: Option<&'static str>,
     pub max_records: u32,
@@ -64,6 +68,7 @@ static LOC: SruEndpoint = SruEndpoint {
     exact_isbn_index: false,
     title_index: "bath.title",
     title_relation: "=",
+    title_fallback_index: None,
     title_filter: None,
     max_records: 3,
     timeout_ms: 25_000,
@@ -82,6 +87,7 @@ static DNB: SruEndpoint = SruEndpoint {
     exact_isbn_index: false,
     title_index: "tit",
     title_relation: "=",
+    title_fallback_index: None,
     title_filter: None,
     max_records: 5,
     timeout_ms: 8_000,
@@ -100,6 +106,7 @@ static K10PLUS: SruEndpoint = SruEndpoint {
     exact_isbn_index: false,
     title_index: "pica.tit",
     title_relation: "=",
+    title_fallback_index: None,
     title_filter: None,
     max_records: 5,
     timeout_ms: 8_000,
@@ -121,6 +128,7 @@ static BNF: SruEndpoint = SruEndpoint {
     exact_isbn_index: true,
     title_index: "bib.title",
     title_relation: "all",
+    title_fallback_index: Some("bib.anywhere"),
     title_filter: Some("bib.doctype any \"a\""),
     max_records: 5,
     timeout_ms: 10_000,

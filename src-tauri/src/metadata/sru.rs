@@ -11,28 +11,34 @@ pub async fn search(
     query: &str,
     isbn: Option<&str>,
 ) -> Result<Vec<BookMetadata>, String> {
-    let cql = build_cql(ep, query, isbn);
+    let mut records = fetch(ep, &build_cql(ep, query, isbn)).await?;
 
+    if let Some(want) = isbn {
+        records.retain(|record| keep_for_isbn(ep, record.isbn.as_deref(), want));
+    } else if records.is_empty() {
+        if let Some(index) = ep.title_fallback_index {
+            records = fetch(ep, &title_cql(ep, index, query)).await?;
+        }
+    }
+
+    Ok(records)
+}
+
+async fn fetch(ep: &SruEndpoint, cql: &str) -> Result<Vec<BookMetadata>, String> {
     let url = format!(
         "{base}?version={version}&operation=searchRetrieve&query={query}&recordSchema={schema}&maximumRecords={max}",
         base = ep.base_url,
         version = ep.version,
-        query = urlencoding::encode(&cql),
+        query = urlencoding::encode(cql),
         schema = ep.record_schema,
         max = ep.max_records,
     );
 
     let body = http::get_text(&url, ep.timeout_ms).await?;
-    let mut records = match ep.record_format {
-        RecordFormat::Marc21 => marcxml::parse_envelope(&body, ep.provider)?,
-        RecordFormat::Unimarc => unimarc::parse_envelope(&body, ep.provider)?,
-    };
-
-    if let Some(want) = isbn {
-        records.retain(|record| keep_for_isbn(ep, record.isbn.as_deref(), want));
+    match ep.record_format {
+        RecordFormat::Marc21 => marcxml::parse_envelope(&body, ep.provider),
+        RecordFormat::Unimarc => unimarc::parse_envelope(&body, ep.provider),
     }
-
-    Ok(records)
 }
 
 fn build_cql(ep: &SruEndpoint, query: &str, isbn: Option<&str>) -> String {
@@ -54,17 +60,19 @@ fn build_cql(ep: &SruEndpoint, query: &str, isbn: Option<&str>) -> String {
                 .collect::<Vec<_>>()
                 .join(" or ")
         }
-        None => {
-            let clause = if ep.title_relation == "=" {
-                format!("{}=\"{}\"", ep.title_index, query)
-            } else {
-                format!("{} {} \"{}\"", ep.title_index, ep.title_relation, query)
-            };
-            match ep.title_filter {
-                Some(filter) => format!("{clause} and {filter}"),
-                None => clause,
-            }
-        }
+        None => title_cql(ep, ep.title_index, query),
+    }
+}
+
+fn title_cql(ep: &SruEndpoint, index: &str, query: &str) -> String {
+    let clause = if ep.title_relation == "=" {
+        format!("{index}=\"{query}\"")
+    } else {
+        format!("{index} {} \"{query}\"", ep.title_relation)
+    };
+    match ep.title_filter {
+        Some(filter) => format!("{clause} and {filter}"),
+        None => clause,
     }
 }
 
@@ -131,6 +139,16 @@ mod tests {
             build_cql(ep(MetadataProvider::Bnf), "petit prince", None),
             "bib.title all \"petit prince\" and bib.doctype any \"a\""
         );
+    }
+
+    #[test]
+    fn bnf_fallback_query_searches_every_field() {
+        let bnf = ep(MetadataProvider::Bnf);
+        assert_eq!(
+            title_cql(bnf, "bib.anywhere", "le vol du dragon, caffrey, pocket"),
+            "bib.anywhere all \"le vol du dragon, caffrey, pocket\" and bib.doctype any \"a\""
+        );
+        assert!(ep(MetadataProvider::Loc).title_fallback_index.is_none());
     }
 
     #[test]
