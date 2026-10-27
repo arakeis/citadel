@@ -45,6 +45,40 @@ describe("mergeResults", () => {
 		expect(results[0]?.alsoOn).toEqual(["Open Library"]);
 	});
 
+	it("prefers a French BnF record over the user's higher-ranked providers", () => {
+		const results = mergeResults(
+			[
+				book("loc", { isbn: "9782246539117", title: "LoC Title" }),
+				book("bnf", {
+					isbn: "9782246539117",
+					title: "BnF Title",
+					language_code: "fre",
+				}),
+			],
+			["loc", "dnb", "k10plus", "bnf"],
+			null,
+		);
+		expect(results).toHaveLength(1);
+		expect(results[0]?.book.provider).toBe("bnf");
+		expect(results[0]?.alsoOn).toEqual(["Library of Congress"]);
+	});
+
+	it("keeps the user's order when the BnF record is not French", () => {
+		const results = mergeResults(
+			[
+				book("loc", { isbn: "9780553103540", title: "LoC Title" }),
+				book("bnf", {
+					isbn: "9780553103540",
+					title: "BnF Title",
+					language_code: "eng",
+				}),
+			],
+			["loc", "dnb", "k10plus", "bnf"],
+			null,
+		);
+		expect(results[0]?.book.provider).toBe("loc");
+	});
+
 	it("matches ISBN-10 and ISBN-13 forms as the same edition", () => {
 		const results = mergeResults(
 			[
