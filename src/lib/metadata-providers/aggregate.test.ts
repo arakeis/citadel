@@ -23,6 +23,7 @@ const book = (
 	slug: null,
 	series: null,
 	series_index: null,
+	collection: null,
 	...overrides,
 });
 

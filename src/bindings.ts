@@ -534,7 +534,13 @@ slug: string | null;
 /**
  * Narrative series (not a publisher's collection); BnF only for now.
  */
-series: string | null; series_index: number | null }
+series: string | null; series_index: number | null; 
+/**
+ * A publisher's collection with its number (e.g. "Folio junior 899"), as
+ * distinct from a narrative series. Applied only to a Calibre custom
+ * column labelled `collection` when the library has one.
+ */
+collection: string | null }
 export type BookSortOrder = "TitleAsc" | "TitleDesc" | "AuthorAsc" | "AuthorDesc"
 export type BookUpdate = { author_id_list: string[] | null; tag_list: string[] | null; title: string | null; timestamp: string | null; publication_date: string | null; is_read: boolean | null; description: string | null; 
 /**

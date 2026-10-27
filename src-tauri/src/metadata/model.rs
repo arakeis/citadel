@@ -89,6 +89,10 @@ pub struct BookMetadata {
     /// Narrative series (not a publisher's collection); BnF only for now.
     pub series: Option<String>,
     pub series_index: Option<f64>,
+    /// A publisher's collection with its number (e.g. "Folio junior 899"), as
+    /// distinct from a narrative series. Applied only to a Calibre custom
+    /// column labelled `collection` when the library has one.
+    pub collection: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]

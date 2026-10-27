@@ -32,6 +32,9 @@ interface UseMetadataBookActionsParams {
 	book: LibraryBook;
 	allAuthorNames: string[];
 	form: FormSetter;
+	/** Receives a publisher's collection; the caller stores it only if the
+	 * library has a matching `collection` custom column. */
+	onCollection?: (collection: string) => void;
 	onReloadBooks: () => Promise<void>;
 	onUpsertIdentifier: (
 		bookId: string,
@@ -54,6 +57,7 @@ export const useMetadataBookActions = ({
 	book,
 	allAuthorNames,
 	form,
+	onCollection,
 	onReloadBooks,
 	onUpsertIdentifier,
 	onCreateAuthor,
@@ -164,6 +168,7 @@ export const useMetadataBookActions = ({
 				);
 			}
 		}
+		if (chosen.collection) onCollection?.(chosen.collection);
 		setLastResolvedSubjects(chosen.subjects);
 		setLastResolvedGenres(
 			chosen.genre_candidates.map((candidate) => candidate.name),

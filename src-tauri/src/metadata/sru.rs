@@ -189,6 +189,7 @@ mod live_tests {
             .unwrap();
         assert_eq!(dragon.series.as_deref(), Some("La Ballade de Pern"));
         assert_eq!(dragon.series_index, Some(1.0));
+        assert_eq!(dragon.collection.as_deref(), Some("Presses pocket 5341"));
         assert_eq!(dragon.isbn.as_deref(), Some("2266028790"));
     }
 }

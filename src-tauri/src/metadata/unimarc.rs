@@ -30,6 +30,7 @@ fn map_record(rec: &RawRecord, provider: MetadataProvider) -> BookMetadata {
         .map(strip_trailing_punct)
         .filter(|s| !s.is_empty());
     let (series, series_index) = series(rec);
+    let collection = collection(rec, series.as_deref());
 
     BookMetadata {
         provider,
@@ -59,6 +60,7 @@ fn map_record(rec: &RawRecord, provider: MetadataProvider) -> BookMetadata {
         slug: None,
         series,
         series_index,
+        collection,
     }
 }
 
@@ -192,6 +194,27 @@ fn series(rec: &RawRecord) -> (Option<String>, Option<f64>) {
     (name, index)
 }
 
+/// The publisher's collection (225, e.g. "Presses pocket" no. 5341 or "Folio
+/// junior" no. 899), as "name number". A 225 repeating the series name (the
+/// 461 link is also listed there) is skipped. `$i` is a subseries title and is
+/// not part of the name.
+fn collection(rec: &RawRecord, series: Option<&str>) -> Option<String> {
+    rec.datafields("225").find_map(|field| {
+        let name = field.first(b'a').map(strip_trailing_punct)?;
+        if name.is_empty() || series.is_some_and(|s| s.eq_ignore_ascii_case(&name)) {
+            return None;
+        }
+        let number = field
+            .first(b'v')
+            .map(|v| v.trim())
+            .filter(|v| !v.is_empty());
+        Some(match number {
+            Some(number) => format!("{name} {number}"),
+            None => name,
+        })
+    })
+}
+
 /// The first number in a volume designation: "1" -> 1, "T. 3" -> 3,
 /// "2,5" -> 2.5.
 fn parse_series_index(raw: &str) -> Option<f64> {
@@ -232,6 +255,8 @@ mod tests {
         assert_eq!(b.language_code.as_deref(), Some("fre"));
         assert_eq!(b.series.as_deref(), Some("Harry Potter"));
         assert_eq!(b.series_index, Some(1.0));
+        // The 225 repeating the series is skipped; the publisher's collection stays.
+        assert_eq!(b.collection.as_deref(), Some("Folio junior 899"));
         assert_eq!(b.provider_id, "cb45595763x");
         assert_eq!(b.identifier_label, "bnf");
         assert!(b.image_url.is_none());
@@ -248,6 +273,7 @@ mod tests {
         assert_eq!(b.authors, vec!["Yuval Noah Harari"]);
         assert_eq!(b.publisher.as_deref(), Some("Albin Michel"));
         assert_eq!(b.release_year, Some(2015));
+        assert_eq!(b.collection, None);
         assert_eq!(b.subjects, vec!["Histoire universelle", "Civilisation"]);
         assert!(b.genre_candidates.is_empty());
         assert_eq!(b.series, None);
@@ -265,6 +291,7 @@ mod tests {
         // "Folio" no. 2 is a publisher collection (225/410), not a series.
         assert_eq!(b.series, None);
         assert_eq!(b.series_index, None);
+        assert_eq!(b.collection.as_deref(), Some("Folio 2"));
         assert_eq!(b.provider_id, "cb35224436w");
     }
 
@@ -272,6 +299,7 @@ mod tests {
     fn parses_summary_and_genre() {
         let b = parse_one(PETIT_PRINCE);
         assert_eq!(b.title, "Le petit prince");
+        assert_eq!(b.collection.as_deref(), Some("Folio junior 100"));
         assert_eq!(b.authors, vec!["Antoine de Saint-Exupéry"]);
         assert!(b
             .description

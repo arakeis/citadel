@@ -244,6 +244,7 @@ fn map_record(rec: &RawRecord, provider: MetadataProvider) -> BookMetadata {
         slug: None,
         series: None,
         series_index: None,
+        collection: None,
     }
 }
 

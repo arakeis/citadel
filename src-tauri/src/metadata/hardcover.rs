@@ -181,6 +181,7 @@ fn document_to_metadata(doc: GqlBookDocument) -> BookMetadata {
         slug: doc.slug,
         series: None,
         series_index: None,
+        collection: None,
     }
 }
 
