@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BookMetadata, LibraryBook } from "@/bindings";
 import { useLibraryActions, useLibraryStore } from "@/stores/library/store";
-import { normalizeIsbn } from "@/lib/isbn";
+import { lookupIsbn, normalizeIsbn } from "@/lib/isbn";
 import type {
 	AggregatedResult,
 	SearchHandle,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/metadata-providers/registry";
 import type { ProviderId } from "@/lib/metadata-providers/types";
 import { usePlatform } from "@/lib/platform/context";
+import { formatSeriesIndex } from "@/lib/series";
 import {
 	useEnabledProviders,
 	useResolvedProviderConfig,
@@ -96,9 +97,7 @@ export const useMetadataBookActions = ({
 		[book.identifier_list],
 	);
 
-	const fileIsbn = isbnIdentifier
-		? (normalizeIsbn(isbnIdentifier.value) ?? null)
-		: null;
+	const fileIsbn = lookupIsbn(book.identifier_list);
 
 	/** Apply a chosen record to the library, preserving the reload→form-reset dance. */
 	const applyBookToLibrary = async (chosen: BookMetadata) => {
@@ -155,6 +154,15 @@ export const useMetadataBookActions = ({
 			form.setFieldValue("description", chosen.description);
 		if (chosen.authors.length > 0) {
 			form.setFieldValue("authorList", chosen.authors);
+		}
+		if (chosen.series) {
+			form.setFieldValue("series", chosen.series);
+			if (chosen.series_index !== null) {
+				form.setFieldValue(
+					"seriesIndex",
+					formatSeriesIndex(chosen.series_index),
+				);
+			}
 		}
 		setLastResolvedSubjects(chosen.subjects);
 		setLastResolvedGenres(

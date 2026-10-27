@@ -158,7 +158,9 @@ mod live_tests {
         assert_eq!(potter[0].series.as_deref(), Some("Harry Potter"));
         let stranger = search(bnf, "", Some("9782070360024")).await.unwrap();
         assert_eq!(stranger[0].title, "L'Étranger");
-        let by_title = search(bnf, "sapiens histoire humanité", None).await.unwrap();
+        let by_title = search(bnf, "sapiens histoire humanité", None)
+            .await
+            .unwrap();
         assert!(!by_title.is_empty());
     }
 }

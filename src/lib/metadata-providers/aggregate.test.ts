@@ -21,6 +21,8 @@ const book = (
 	genre_candidates: [],
 	language_code: null,
 	slug: null,
+	series: null,
+	series_index: null,
 	...overrides,
 });
 

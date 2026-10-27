@@ -64,6 +64,13 @@ export const mergeResults = (
 			const peerCover = sorted.find((member) => member.image_url);
 			if (peerCover) winner.image_url = peerCover.image_url;
 		}
+		if (!winner.series) {
+			const peerSeries = sorted.find((member) => member.series);
+			if (peerSeries) {
+				winner.series = peerSeries.series;
+				winner.series_index = peerSeries.series_index;
+			}
+		}
 		const seenGenres = new Set<string>();
 		winner.genre_candidates = sorted
 			.flatMap((member) => member.genre_candidates)
