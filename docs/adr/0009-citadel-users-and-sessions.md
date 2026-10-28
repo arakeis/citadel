@@ -65,7 +65,11 @@ a choice made by a person, never automatic: `CitadelStore::backups` lists the
 backups this build can open, and `restore_backup`, `set_aside` (start fresh)
 and `retry_migration` act on a closed store. None deletes a database; a
 replaced file is renamed to `citadel.db.unusable-<unix time>` with its WAL
-files. Server operators do the same by hand with the server stopped.
+files. Server operators do the same by hand with the server stopped. The
+desktop starts without its local account instead and shows a recovery screen
+offering the steps that can help (`src-tauri/src/recovery.rs` decides which;
+`src/lib/database-recovery/copy.ts` holds the wording); a step restarts the
+app.
 
 The server always requires sign-in; `sharing.authenticationEnabled` and
 `CITADEL_OPDS_USERS` are removed and rejected with migration hints.

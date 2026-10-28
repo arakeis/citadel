@@ -22,6 +22,7 @@ mod library;
 mod menu;
 mod metadata;
 mod opds;
+mod recovery;
 mod state;
 
 fn command_builder() -> Builder<tauri::Wry> {
@@ -30,6 +31,9 @@ fn command_builder() -> Builder<tauri::Wry> {
         .commands(collect_commands![
             // Library and initialization commands
             library::init_client,
+            // citadel.db recovery at startup (ADR 0009)
+            recovery::clb_query_database_problem,
+            recovery::clb_cmd_recover_database,
             library::query::clb_query_is_path_valid_library,
             library::command::clb_cmd_create_library,
             // First-run onboarding: detection-led library setup (CDL-19)
@@ -130,7 +134,18 @@ fn run_tauri_backend() -> std::io::Result<()> {
 
             // citadel.db lives in app data: the local user, its sharing
             // password and the library list (ADR 0009).
-            let account = account::LocalAccount::open(&app.path().app_data_dir()?)?;
+            let app_data_dir = app.path().app_data_dir()?;
+            let account = match account::LocalAccount::open(&app_data_dir) {
+                Ok(account) => account,
+                Err(error) => {
+                    // The window shows the recovery screen instead of the app.
+                    app.manage(recovery::PendingRecovery::new(
+                        app_data_dir.join(account::DATABASE),
+                        &error,
+                    ));
+                    return Ok(());
+                }
+            };
             let sharing = citadel_opds::OpdsService::with_ephemeral_credentials(
                 Arc::new(opds_state.clone()),
                 Vec::new(),
@@ -201,12 +216,14 @@ fn run_tauri_backend() -> std::io::Result<()> {
                 Ordering::Acquire,
             ) {
                 Ok(_) => {
+                    // Absent when startup stopped to offer database recovery.
+                    let Some(opds_service) = app_handle.try_state::<citadel_opds::OpdsService>()
+                    else {
+                        return;
+                    };
+                    let opds_service = opds_service.inner().clone();
                     api.prevent_exit();
                     let app_handle = app_handle.clone();
-                    let opds_service = app_handle
-                        .state::<citadel_opds::OpdsService>()
-                        .inner()
-                        .clone();
                     let exit_phase = exit_phase.clone();
                     let exit_code = code.unwrap_or(0);
                     tauri::async_runtime::spawn(async move {
