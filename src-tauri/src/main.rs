@@ -114,13 +114,11 @@ fn run_tauri_backend() -> std::io::Result<()> {
         )
         .expect("Failed to export typescript bindings");
 
-    let mut tauri_builder = tauri::Builder::default();
+    let tauri_builder = tauri::Builder::default();
 
     // WebDriver server for automated e2e testing; debug builds only.
     #[cfg(debug_assertions)]
-    {
-        tauri_builder = tauri_builder.plugin(tauri_plugin_webdriver_automation::init());
-    }
+    let tauri_builder = tauri_builder.plugin(tauri_plugin_webdriver_automation::init());
 
     let state = state::CitadelState::new();
     let opds_state = state.clone();

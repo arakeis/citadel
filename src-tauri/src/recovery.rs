@@ -301,15 +301,15 @@ mod tests {
         .unwrap();
     }
 
+    /// Database files named with `prefix`, leaving out the `-wal`/`-shm`
+    /// sidecars that macOS keeps next to a closed database.
     fn files(app_data_dir: &Path, prefix: &str) -> Vec<PathBuf> {
         std::fs::read_dir(app_data_dir)
             .unwrap()
             .map(|entry| entry.unwrap().path())
             .filter(|path| {
-                path.file_name()
-                    .unwrap()
-                    .to_string_lossy()
-                    .starts_with(prefix)
+                let name = path.file_name().unwrap().to_string_lossy();
+                name.starts_with(prefix) && !name.ends_with("-wal") && !name.ends_with("-shm")
             })
             .collect()
     }

@@ -44,11 +44,18 @@ jobs:
           cargo --version;
           bun tauri --version
 
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tauriScript: bun tauri
+      # Plain `tauri build` rather than tauri-action: this workflow publishes
+      # nothing, and the DMG step (hdiutil on the macOS runners) fails
+      # intermittently, so retry it. Later attempts reuse the compiled target.
+      - name: Build the app
+        run: |
+          for attempt in 1 2 3; do
+            if bun tauri build --verbose; then
+              exit 0
+            fi
+            echo "::warning::tauri build failed on attempt $attempt"
+          done
+          exit 1
 
       - name: (Ubuntu only) Upload build artifacts
         if: matrix.platform == 'ubuntu-22.04'
