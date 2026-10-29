@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { F7Pencil } from "@/components/icons/F7Pencil";
 import { F7Trash } from "@/components/icons/F7Trash";
 import { TablerLogout } from "@/components/icons/TablerLogout";
@@ -8,6 +8,7 @@ import { SettingsButton } from "@/components/molecules/SettingsButton";
 import { IconButton, TextInput, Tooltip } from "@/components/ui";
 import { safeAsyncEventHandler } from "@/lib/async";
 import { usePlatform } from "@/lib/platform/context";
+import { useLibrarySelection } from "@/lib/hooks/use-library-selection";
 import {
 	type BrowserSessionControls,
 	useBrowserSessionControls,
@@ -17,6 +18,7 @@ import { useSoftwareUpdate } from "@/lib/hooks/use-software-update";
 import {
 	type BookRouteFilters,
 	routeFiltersFromSearch,
+	shelfInLibrary,
 	shelfLeftRoute,
 	shelfMatchesRoute,
 	shelfRouteFilters,
@@ -79,7 +81,12 @@ const SidebarPure = ({
 	session,
 }: SidebarPureProps) => {
 	const platform = usePlatform();
-	const smartShelves = useSettings((s) => s.smartShelves);
+	const allShelves = useSettings((s) => s.smartShelves);
+	const libraryId = useLibrarySelection().activeLibrary?.id;
+	const smartShelves = useMemo(
+		() => allShelves.filter((shelf) => shelfInLibrary(shelf.filter, libraryId)),
+		[allShelves, libraryId],
+	);
 	const libraryCount = useSettings((s) => s.libraryPaths.length);
 	const hydrated = useSettings((s) => s.hydrated);
 	const activeShelfId = useLibraryView((s) => s.activeShelfId);
